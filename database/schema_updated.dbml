@@ -1,0 +1,340 @@
+Table users {
+  user_id bigint [pk, increment]
+  full_name varchar
+  email varchar [unique]
+  phone varchar
+  status varchar
+  created_at datetime
+  last_login datetime
+}
+
+Table profiles {
+  profile_id bigint [pk, increment]
+  user_id bigint [unique, ref: > users.user_id]
+  username varchar [unique]
+  password varchar
+  full_name varchar [ref: > users.full_name]
+  bio text
+  profile_picture varchar
+  website varchar
+  account_type varchar
+  is_private boolean
+  verified_status boolean
+}
+
+Table profile_stats {
+  profile_id bigint [pk, ref: > profiles.profile_id]
+  followers_count int
+  following_count int
+  posts_count int
+  reels_count int
+}
+
+Table username_history {
+  history_id bigint [pk]
+  profile_id bigint [ref: > profiles.profile_id]
+  old_username varchar
+  new_username varchar
+  changed_at datetime
+}
+
+Table bio_history {
+  history_id bigint [pk]
+  profile_id bigint [ref: > profiles.profile_id]
+  old_bio text
+  new_bio text [ref: > profiles.bio]
+  changed_at datetime
+}
+
+Table follows {
+  follower_id bigint [ref: > profiles.profile_id]
+  following_id bigint [ref: > profiles.profile_id]
+  followed_at datetime
+  indexes {
+    (follower_id, following_id) [pk]
+  }
+}
+
+Table follow_requests {
+  request_id bigint [pk]
+  sender_id bigint [ref: > profiles.profile_id]
+  receiver_id bigint [ref: > profiles.profile_id]
+  status varchar
+  created_at datetime
+}
+
+Table blocks {
+  blocker_id bigint [ref: > profiles.profile_id]
+  blocked_id bigint [ref: > profiles.profile_id]
+  blocked_at datetime
+  indexes {
+    (blocker_id, blocked_id) [pk]
+  }
+}
+
+Table posts {
+  post_id bigint [pk]
+  profile_id bigint [ref: > profiles.profile_id]
+  caption text
+  location varchar
+  visibility varchar
+  created_at datetime
+}
+
+Table post_likes {
+  post_id bigint [ref: > posts.post_id]
+  profile_id bigint [ref: > profiles.profile_id]
+  liked_at datetime
+  indexes {
+    (post_id, profile_id) [pk]
+  }
+}
+
+Table post_comments {
+  comment_id bigint [pk]
+  post_id bigint [ref: > posts.post_id]
+  profile_id bigint [ref: > profiles.profile_id]
+  comment_text text
+  created_at datetime
+}
+
+Table comment_likes {
+  comment_id bigint [ref: > post_comments.comment_id]
+  profile_id bigint [ref: > profiles.profile_id]
+  liked_at datetime
+  indexes {
+    (comment_id, profile_id) [pk]
+  }
+}
+
+Table reels {
+  reel_id bigint [pk]
+  profile_id bigint [ref: > profiles.profile_id]
+  caption text
+  duration int
+  created_at datetime
+}
+
+Table reel_likes {
+  reel_id bigint [ref: > reels.reel_id]
+  profile_id bigint [ref: > profiles.profile_id]
+  liked_at datetime
+  indexes {
+    (reel_id, profile_id) [pk]
+  }
+}
+
+Table reel_comments {
+  reel_comment_id bigint [pk]
+  reel_id bigint [ref: > reels.reel_id]
+  profile_id bigint [ref: > profiles.profile_id]
+  comment_text text
+}
+
+
+Table stories {
+  story_id bigint [pk]
+  profile_id bigint [ref: > profiles.profile_id]
+  expires_at datetime
+  created_at datetime
+}
+
+Table story_views {
+  story_id bigint [ref: > stories.story_id]
+  viewer_id bigint [ref: > profiles.profile_id]
+  viewed_at datetime
+}
+
+Table story_likes {
+  story_id bigint [ref: > stories.story_id]
+  profile_id bigint [ref: > profiles.profile_id]
+}
+
+Table story_reactions {
+  reaction_id bigint [pk]
+  story_id bigint [ref: > stories.story_id]
+  profile_id bigint [ref: > profiles.profile_id]
+  emoji varchar
+}
+
+Table story_comments {
+  comment_id bigint [pk]
+  story_id bigint [ref: > stories.story_id]
+  profile_id bigint [ref: > profiles.profile_id]
+  comment_text text
+}
+
+Table highlights {
+  highlight_id bigint [pk]
+  profile_id bigint [ref: > profiles.profile_id]
+  title varchar
+  cover_image varchar
+}
+
+Table highlight_stories {
+  highlight_id bigint [ref: > highlights.highlight_id]
+  story_id bigint [ref: > stories.story_id]
+  indexes {
+    (highlight_id, story_id) [pk]
+  }
+}
+
+Table save_collections {
+  collection_id bigint [pk]
+  saved_id bigint [ref: > saved.saved_id]
+  profile_id bigint [ref: > profiles.profile_id]
+  collection_name varchar
+}
+
+Table saved {
+  saved_id bigint [pk]
+  post_id bigint [ref: > posts.post_id]
+  reel_id bigint [ref: > reels.reel_id]
+  audio_id bigint [ref: > audio_tracks.audio_id]
+}
+
+Table saved_posts {
+  saved_id bigint [ref: - saved.saved_id]
+  collection_id bigint [ref: > save_collections.collection_id]
+  post_id bigint [ref: > posts.post_id]
+  saved_at datetime
+}
+
+Table saved_reels {
+  saved_id bigint [ref: - saved.saved_id]
+  collection_id bigint [ref: > save_collections.collection_id]
+  reel_id bigint [ref: > reels.reel_id]
+  saved_at datetime 
+}
+
+Table hashtags {
+  hashtag_id bigint [pk]
+  tag_name varchar [unique]
+}
+
+Table post_hashtags {
+  post_id bigint [ref: > posts.post_id]
+  hashtag_id bigint [ref: > hashtags.hashtag_id]
+}
+
+Table reel_hashtags {
+  reel_id bigint [ref: > reels.reel_id]
+  hashtag_id bigint [ref: > hashtags.hashtag_id]
+}
+
+Table conversations {
+  conversation_id bigint [pk]
+  conversation_type varchar
+  created_at datetime
+}
+
+Table conversation_members {
+  conversation_id bigint [ref: > conversations.conversation_id]
+  profile_id bigint [ref: > profiles.profile_id]
+  joined_at datetime
+}
+
+Table messages {
+  message_id bigint [pk]
+  conversation_id bigint [ref: > conversations.conversation_id]
+  sender_id bigint [ref: > profiles.profile_id]
+  message_type varchar
+  content text
+  sent_at datetime
+}
+
+Table message_reactions {
+  reaction_id bigint [pk]
+  message_id bigint [ref: > messages.message_id]
+  profile_id bigint [ref: > profiles.profile_id]
+  emoji varchar
+}
+
+Table message_seen {
+  message_id bigint [ref: > messages.message_id]
+  profile_id bigint [ref: > profiles.profile_id]
+  seen_at datetime
+}
+
+Table notes {
+  note_id bigint [pk]
+  profile_id bigint [ref: > profiles.profile_id]
+  content varchar
+  expires_at datetime
+}
+
+Table notifications {
+  notification_id bigint [pk]
+  receiver_id bigint [ref: > profiles.profile_id]
+  user_id bigint [ref: > profiles.profile_id]
+  notification_type varchar
+  reference_id bigint
+  is_read boolean
+}
+
+Table audio_tracks {
+  audio_id bigint [pk]
+  title varchar
+  artist varchar
+}
+
+Table reel_audio {
+  reel_id bigint [ref: > reels.reel_id]
+  audio_id bigint [ref: > audio_tracks.audio_id]
+}
+
+Table user_search_index {
+  profile_id bigint [pk, ref: > profiles.profile_id]
+  searchable_text text
+}
+
+Table post_search_index {
+  post_id bigint [pk, ref: > posts.post_id]
+  searchable_text text
+}
+
+Table reel_search_index {
+  reel_id bigint [pk, ref: > reels.reel_id]
+  searchable_text text
+}
+
+Table hashtag_search_index {
+  hashtag_id bigint [pk, ref: > hashtags.hashtag_id]
+  usage_count bigint
+}
+
+Table audio_search_index {
+  audio_id bigint [pk, ref: > audio_tracks.audio_id]
+  usage_count bigint
+}
+
+Table search_history {
+  history_id bigint [pk]
+  profile_id bigint [ref: > profiles.profile_id]
+  search_term varchar
+  searched_at datetime
+}
+
+Table trending_searches {
+  trend_id bigint [pk]
+  keyword varchar
+  search_count bigint
+}
+
+Table access_tokens {
+  access_token_id bigint [pk]
+  profile_id bigint [ref: > profiles.profile_id]
+  issued_at datetime
+  expires_at datetime
+  revoked boolean
+}
+
+Table refresh_tokens {
+  refresh_token_id bigint [pk]
+  profile_id bigint [ref: > profiles.profile_id]
+  token varchar [unique]
+  issued_at datetime
+  expires_at datetime
+  revoked boolean
+  revoked_at datetime
+}
