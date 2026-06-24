@@ -114,6 +114,26 @@ def create_group_conversation(
 
     db.commit()
     db.refresh(db_conv)
+
+    # Notify added members about the new group conversation in real-time
+    try:
+        from dependencies import ws_manager
+        for member in db_conv.members:
+            if member.profile_id != sender_id:
+                payload = {
+                    "type": "new_conversation",
+                    "data": {
+                        "conversation_id": str(db_conv.conversation_id),
+                        "conversation_type": db_conv.conversation_type,
+                        "name": db_conv.name,
+                        "created_at": db_conv.created_at.isoformat(),
+                        "last_message": "Click to open chat history"
+                    }
+                }
+                ws_manager.send_personal_message_sync(payload, member.profile_id)
+    except Exception as err:
+        print(f"Failed to push new group conversation WS event: {err}")
+
     return db_conv
 
 

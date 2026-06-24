@@ -170,11 +170,22 @@ function connectWebSocket() {
           }
         } else {
           showToast(`New message: ${msg.content}`, "info");
-          if (state.activeTab === "messages") {
-            fetchConversations();
-          }
+        }
+        // Always refresh conversations to update the last message preview
+        if (state.activeTab === "messages") {
+          fetchConversations();
+        }
+      } else if (payload.type === "new_conversation") {
+        const conv = payload.data;
+        showToast(`Added to new group: ${conv.name}`, "info");
+        if (state.activeTab === "messages") {
+          fetchConversations();
         }
       } else if (payload.type === "notification") {
+        // Ignore duplicate toast notifications for messages
+        if (payload.data && payload.data.notification_type === "message") {
+          return;
+        }
         showToast(payload.data.content || "New notification received", "info");
       }
     } catch (err) {
@@ -931,17 +942,19 @@ function closeStoryViewer() {
 // ==========================================
 async function fetchConversations() {
   const container = document.getElementById("conv-items");
-  container.innerHTML = `<div class="story-expires-indicator"><i class="fa-solid fa-spinner fa-spin"></i> Loading Chats...</div>`;
+  if (!container.querySelector(".conv-item")) {
+    container.innerHTML = `<div class="story-expires-indicator"><i class="fa-solid fa-spinner fa-spin"></i> Loading Chats...</div>`;
+  }
   
   try {
     const list = await apiRequest("/api/conversations");
-    container.innerHTML = "";
     
     if (list.length === 0) {
       container.innerHTML = `<div class="story-expires-indicator">No active chats. Click the icon to start one!</div>`;
       return;
     }
     
+    const items = [];
     for (const conv of list) {
       const isGroup = conv.conversation_type === "group";
       const partner = conv.recipient_username;
@@ -971,6 +984,11 @@ async function fetchConversations() {
           <span class="conv-lastmsg">${lastMsg}</span>
         </div>
       `;
+      items.push(item);
+    }
+    
+    container.innerHTML = "";
+    for (const item of items) {
       container.appendChild(item);
     }
   } catch (err) {}

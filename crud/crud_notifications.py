@@ -40,13 +40,31 @@ def create_notification(
     # Broadcast notification via WebSocket if receiver is connected
     try:
         ws = get_ws_manager()
+        from crud import crud_sql
+        actor_profile = crud_sql.get_profile_by_id(db, sender_profile_id)
+        actor_username = actor_profile.username if actor_profile else f"user_{sender_profile_id}"
+
+        # Build descriptive content for real-time toast notifications
+        content = "New notification received"
+        if notification_type == "follow":
+            content = f"@{actor_username} started following you."
+        elif notification_type == "follow_accept":
+            content = f"@{actor_username} accepted your follow request."
+        elif notification_type == "like":
+            content = f"@{actor_username} liked your post."
+        elif notification_type == "comment":
+            content = f"@{actor_username} commented on your post."
+        elif notification_type == "message":
+            content = f"New message from @{actor_username}."
+
         payload = {
             "notification_id": db_noti.notification_id,
             "receiver_id": db_noti.receiver_id,
             "user_id": db_noti.user_id,
             "notification_type": db_noti.notification_type,
             "reference_id": db_noti.reference_id,
-            "is_read": db_noti.is_read
+            "is_read": db_noti.is_read,
+            "content": content
         }
         ws.broadcast_notification_sync(payload, receiver_id)
     except Exception as err:

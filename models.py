@@ -23,7 +23,7 @@ class User(Base):
     last_login = sqlalchemy.Column(sqlalchemy.DateTime)
 
     # Relationships
-    profile = relationship("Profile", back_populates="user", uselist=False, foreign_keys="[Profile.user_id]")
+    # profile = relationship("Profile", back_populates="user", uselist=False, foreign_keys="[Profile.user_id]")
 
 
 class Profile(Base):
@@ -44,7 +44,7 @@ class Profile(Base):
     lockout_until = sqlalchemy.Column(sqlalchemy.DateTime, nullable=True)
 
     # Relationships
-    user = relationship("User", back_populates="profile", foreign_keys=[user_id])
+    # user = relationship("User", back_populates="profile", foreign_keys=[user_id])
     stats = relationship("ProfileStats", back_populates="profile", uselist=False)
     posts = relationship("Post", back_populates="profile")
     reels = relationship("Reel", back_populates="profile")
