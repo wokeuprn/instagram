@@ -727,13 +727,53 @@ def create_group(
     )
 
 
-@app.get("/api/conversations", response_model=List[schemas.ConversationResponse])
-def list_conversations(profile: models.Profile = Depends(get_current_profile), db: Session = Depends(get_db)):
+@app.post("/api/conversations/{conv_id}/members", response_model=schemas.ConversationResponse)
+def add_group_members_endpoint(
+    conv_id: int,
+    request: schemas.AddGroupMembersRequest,
+    profile: models.Profile = Depends(get_current_profile),
+    db: Session = Depends(get_db)
+):
     """
-    Lists conversations the current profile is a member of.
+    Adds users to an existing group conversation.
+    """
+    try:
+        conv = crud_messaging.add_members_to_group(db, conv_id, request.usernames, profile.profile_id)
+    except ValueError as val_err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(val_err)
+        )
+
+    member_usernames = []
+    for member in conv.members:
+        member_profile = db.query(models.Profile).filter(models.Profile.profile_id == member.profile_id).first()
+        if member_profile:
+            member_usernames.append(member_profile.username)
+
+    return schemas.ConversationResponse(
+        conversation_id=conv.conversation_id,
+        conversation_type=conv.conversation_type,
+        created_at=conv.created_at,
+        name=conv.name,
+        member_usernames=member_usernames
+    )
+
+
+@app.get("/api/conversations", response_model=List[schemas.ConversationResponse])
+def list_conversations(
+    q: Optional[str] = Query(None, description="Search chats by name or member username"),
+    profile: models.Profile = Depends(get_current_profile),
+    db: Session = Depends(get_db)
+):
+    """
+    Lists conversations the current profile is a member of, optionally filtered by search query.
     """
     conversations = crud_messaging.get_profile_conversations(db, profile.profile_id)
     response = []
+    
+    q_lower = q.lower().strip() if q else None
+    
     for conv in conversations:
         recipient_username = None
         recipient_avatar = None
@@ -743,6 +783,9 @@ def list_conversations(profile: models.Profile = Depends(get_current_profile), d
         members = db.query(models.ConversationMember).filter(
             models.ConversationMember.conversation_id == conv.conversation_id
         ).all()
+        
+        matches_search = not q_lower
+        
         for member in members:
             member_profile = db.query(models.Profile).filter(models.Profile.profile_id == member.profile_id).first()
             if member_profile:
@@ -750,6 +793,16 @@ def list_conversations(profile: models.Profile = Depends(get_current_profile), d
                 if conv.conversation_type == "direct" and member.profile_id != profile.profile_id:
                     recipient_username = member_profile.username
                     recipient_avatar = member_profile.profile_picture
+                
+                if q_lower and member.profile_id != profile.profile_id:
+                    if q_lower in member_profile.username.lower() or (member_profile.full_name and q_lower in member_profile.full_name.lower()):
+                        matches_search = True
+
+        if q_lower and conv.name and q_lower in conv.name.lower():
+            matches_search = True
+
+        if not matches_search:
+            continue
 
         last_msg = db.query(models.Message).filter(models.Message.conversation_id == conv.conversation_id).order_by(models.Message.sent_at.desc()).first()
         last_message_content = last_msg.content if last_msg else None

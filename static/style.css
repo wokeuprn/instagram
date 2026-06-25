@@ -2574,4 +2574,195 @@ button, input, textarea, select {
   opacity: 0.6;
 }
 
+/* Modern Sleek Search Bars */
+.chat-search-wrapper {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-color);
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.chat-search-wrapper .search-icon {
+  position: absolute;
+  left: 28px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
+.chat-search-wrapper input {
+  width: 100%;
+  padding: 10px 12px 10px 38px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  outline: none;
+  transition: all 0.2s ease-in-out;
+}
+
+.chat-search-wrapper input:focus {
+  background-color: #1c1c1e;
+  border-color: var(--accent-blue);
+}
+
+.chat-search-wrapper input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Group Info Sidebar - Add Member Section */
+.group-info-add-section {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border-color);
+  position: relative;
+}
+
+.group-info-add-section h3 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.add-member-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.add-member-input-wrapper i {
+  position: absolute;
+  left: 12px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
+.add-member-input-wrapper input {
+  width: 100%;
+  padding: 9px 12px 9px 34px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  outline: none;
+  transition: all 0.2s ease-in-out;
+}
+
+.add-member-input-wrapper input:focus {
+  background-color: #1c1c1e;
+  border-color: var(--accent-blue);
+}
+
+.add-member-input-wrapper input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Dropdown Results for Add Members */
+.add-member-dropdown {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 100;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  margin-top: 6px;
+  scrollbar-width: thin;
+}
+
+.add-member-dropdown.hidden {
+  display: none;
+}
+
+.add-member-result-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.add-member-result-row:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.add-member-result-row.no-results {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  text-align: center;
+  justify-content: center;
+  padding: 14px;
+  cursor: default;
+}
+
+.add-member-result-row.no-results:hover {
+  background: none;
+}
+
+.add-member-result-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--gradient-rainbow);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: #fff;
+  overflow: hidden;
+}
+
+.add-member-result-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.add-member-result-meta {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.add-member-result-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.add-member-result-handle {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.add-member-result-row .add-icon {
+  color: var(--accent-blue);
+  font-size: 0.85rem;
+  transition: transform 0.2s ease;
+}
+
+.add-member-result-row:hover .add-icon {
+  transform: scale(1.2);
+}
+
+.group-members-title-wrapper {
+  padding: 16px 20px 6px 20px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 

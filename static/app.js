@@ -141,13 +141,13 @@ function connectWebSocket() {
   if (state.socket) {
     try {
       state.socket.close();
-    } catch (e) {}
+    } catch (e) { }
     state.socket = null;
   }
 
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const wsUrl = `${protocol}//${window.location.host}/api/ws?token=${state.token}`;
-  
+
   console.log("Connecting to WebSocket:", wsUrl);
   const socket = new WebSocket(wsUrl);
   state.socket = socket;
@@ -160,7 +160,7 @@ function connectWebSocket() {
     try {
       const payload = JSON.parse(event.data);
       console.log("WebSocket event received:", payload);
-      
+
       if (payload.type === "message") {
         const msg = payload.data;
         if (sameId(state.activeConversationId, msg.conversation_id)) {
@@ -260,22 +260,35 @@ function appendMessageToUI(msg) {
 async function loadApp() {
   document.getElementById("auth-screen").classList.add("hidden");
   document.getElementById("main-app").classList.remove("hidden");
-  
+
   try {
     // 1. Fetch current profile (This verifies if token is working)
     state.profile = await apiRequest("/api/profile", "GET");
     console.log("Logged in user:", state.profile);
-    
+
     // 2. Connect WebSocket
     connectWebSocket();
-    
-    // 3. Fetch feed, stories, DMs
-    fetchFeed();
-    fetchStories();
-    fetchConversations();
-    
+
     // Set UI indicators
     document.getElementById("btn-nav-profile").querySelector("span").textContent = `Profile`;
+
+    // 3. Restore navigation state
+    const savedTab = sessionStorage.getItem("activeTab") || "feed";
+    if (savedTab === "profile") {
+      state.viewingUsername = sessionStorage.getItem("viewingUsername") || null;
+    }
+
+    switchTab(savedTab);
+
+    if (savedTab === "messages") {
+      const savedConvId = sessionStorage.getItem("activeConversationId");
+      if (savedConvId) {
+        const partner = sessionStorage.getItem("activeConversationPartner") || null;
+        const isGroup = sessionStorage.getItem("activeConversationIsGroup") === "true";
+        const groupName = sessionStorage.getItem("activeConversationGroupName") || "";
+        openChatRoom(savedConvId, partner, null, isGroup, groupName);
+      }
+    }
   } catch (err) {
     console.error("Failed to load application state:", err);
     logout();
@@ -287,19 +300,35 @@ function logout() {
     fetch("/api/logout", {
       method: "POST",
       headers: { "Authorization": `Bearer ${state.token}` }
-    }).catch(() => {});
+    }).catch(() => { });
   }
-  
+
   if (state.socket) {
     try {
       state.socket.close();
-    } catch (e) {}
+    } catch (e) { }
     state.socket = null;
   }
-  
+
   state.token = "";
   state.profile = null;
+  state.activeTab = "feed";
+  state.activeConversationId = null;
+  state.activeConversationPartner = null;
+  state.activeConversationIsGroup = false;
+  state.activeConversationGroupName = null;
+  state.storyTimer = null;
+  state.viewingUsername = null;
+
   localStorage.removeItem("authToken");
+
+  sessionStorage.removeItem("activeTab");
+  sessionStorage.removeItem("viewingUsername");
+  sessionStorage.removeItem("activeConversationId");
+  sessionStorage.removeItem("activeConversationPartner");
+  sessionStorage.removeItem("activeConversationIsGroup");
+  sessionStorage.removeItem("activeConversationGroupName");
+
   showAuthScreen();
 }
 
@@ -313,7 +342,7 @@ function setupEventListeners() {
     document.getElementById("login-form").classList.remove("active");
     document.getElementById("register-form").classList.add("active");
   });
-  
+
   document.getElementById("to-login").addEventListener("click", (e) => {
     e.preventDefault();
     document.getElementById("register-form").classList.remove("active");
@@ -325,13 +354,13 @@ function setupEventListeners() {
     e.preventDefault();
     const username_or_email = document.getElementById("login-username").value;
     const password = document.getElementById("login-password").value;
-    
+
     try {
       const data = await apiRequest("/api/login", "POST", { username_or_email, password });
       state.token = data.access_token;
       localStorage.setItem("authToken", state.token);
       loadApp();
-    } catch (err) {}
+    } catch (err) { }
   });
 
   document.getElementById("register-form").addEventListener("submit", async (e) => {
@@ -341,26 +370,26 @@ function setupEventListeners() {
     const username = document.getElementById("reg-username").value;
     const phone = document.getElementById("reg-phone").value || null;
     const password = document.getElementById("reg-password").value;
-    
+
     try {
       await apiRequest("/api/register", "POST", { email, full_name, username, phone, password });
-      
+
       // Auto-login using the credentials just submitted
       const loginData = await apiRequest("/api/login", "POST", {
         username_or_email: username,
         password: password
       });
-      
+
       state.token = loginData.access_token;
       localStorage.setItem("authToken", state.token);
-      
+
       // Load user profile details and redirect directly to Profile View
       await loadApp();
       switchTab("profile");
-      
+
       // Reset form fields
       document.getElementById("register-form").reset();
-    } catch (err) {}
+    } catch (err) { }
   });
 
   // Logout Click
@@ -398,7 +427,7 @@ function setupEventListeners() {
       document.getElementById(modalId).classList.add("hidden");
     });
   };
-  
+
   setupModal("btn-open-create", "modal-create", "btn-close-create");
   setupModal("profile-btn-edit", "modal-profile", "btn-close-profile");
   setupModal("btn-new-chat", "modal-new-chat", "btn-close-new-chat");
@@ -490,7 +519,7 @@ function setupEventListeners() {
       fileInput._droppedFile = null;
       fetchFeed();
       showToast("Posted!", "success");
-    } catch (err) {}
+    } catch (err) { }
   });
 
   // ── Avatar upload zone in Edit Profile ─────────────────────────────────
@@ -524,7 +553,7 @@ function setupEventListeners() {
 
   let _shareTarget = null; // { type: 'post'|'reel', id: ... }
 
-  window.openShareModal = function(type, id) {
+  window.openShareModal = function (type, id) {
     _shareTarget = { type, id };
     document.getElementById("share-recipient").value = "";
     document.getElementById("modal-share").classList.remove("hidden");
@@ -541,7 +570,7 @@ function setupEventListeners() {
       await apiRequest(`/api/${_shareTarget.type}s/${_shareTarget.id}/share?recipient_username=${encodeURIComponent(recipient)}`, "POST");
       document.getElementById("modal-share").classList.add("hidden");
       showToast(`Shared to @${recipient}!`, "success");
-    } catch (err) {}
+    } catch (err) { }
   });
 
   // ── Group info panel ────────────────────────────────────────────────────
@@ -549,6 +578,78 @@ function setupEventListeners() {
   document.getElementById("btn-close-group-info").addEventListener("click", () => {
     document.getElementById("group-info-panel").classList.add("hidden");
   });
+
+  // Chat search filtering
+  const chatSearchInput = document.getElementById("chat-search-input");
+  if (chatSearchInput) {
+    chatSearchInput.addEventListener("input", (e) => {
+      const q = e.target.value;
+      fetchConversations(q);
+    });
+  }
+
+  // Add members autocomplete search index
+  const addMemberInput = document.getElementById("add-member-search-input");
+  const addMemberResults = document.getElementById("add-member-search-results");
+  if (addMemberInput && addMemberResults) {
+    addMemberInput.addEventListener("input", async (e) => {
+      const val = e.target.value.trim().toLowerCase();
+      if (!val) {
+        addMemberResults.innerHTML = "";
+        addMemberResults.classList.add("hidden");
+        return;
+      }
+
+      try {
+        const data = await apiRequest(`/api/search?q=${encodeURIComponent(val)}`);
+        const profiles = data.profiles || [];
+        const activeMembers = state.activeGroupMembers || new Set();
+        const filtered = profiles.filter(p => !activeMembers.has(p.username));
+
+        if (filtered.length === 0) {
+          addMemberResults.innerHTML = '<div class="add-member-result-row no-results">No matching users found</div>';
+        } else {
+          addMemberResults.innerHTML = filtered.map(p => `
+            <div class="add-member-result-row" data-username="${p.username}">
+              <div class="add-member-result-avatar">
+                ${p.profile_picture ? `<img src="${p.profile_picture}" alt="Avatar">` : p.username.substring(0,2).toUpperCase()}
+              </div>
+              <div class="add-member-result-meta">
+                <span class="add-member-result-name">${p.full_name || p.username}</span>
+                <span class="add-member-result-handle">@${p.username}</span>
+              </div>
+              <i class="fa-solid fa-plus add-icon"></i>
+            </div>
+          `).join("");
+
+          addMemberResults.querySelectorAll(".add-member-result-row").forEach(row => {
+            row.onclick = async () => {
+              const usernameToAdd = row.dataset.username;
+              if (!usernameToAdd || !state.activeGroupConversationId) return;
+              try {
+                await apiRequest(`/api/conversations/${state.activeGroupConversationId}/members`, "POST", {
+                  usernames: [usernameToAdd]
+                });
+                showToast(`Added @${usernameToAdd} to group!`, "success");
+                openGroupInfoPanel(state.activeGroupConversationId);
+              } catch (err) {
+                console.error(err);
+              }
+            };
+          });
+        }
+        addMemberResults.classList.remove("hidden");
+      } catch (err) {
+        console.error("Search members error:", err);
+      }
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!addMemberInput.contains(e.target) && !addMemberResults.contains(e.target)) {
+        addMemberResults.classList.add("hidden");
+      }
+    });
+  }
 
   // Relations modal triggers
   document.getElementById("btn-close-relations").addEventListener("click", () => {
@@ -589,11 +690,11 @@ function setupEventListeners() {
   async function uploadFileHelper(fileInputId) {
     const fileInput = document.getElementById(fileInputId);
     if (!fileInput || fileInput.files.length === 0) return null;
-    
+
     const file = fileInput.files[0];
     const formData = new FormData();
     formData.append("file", file);
-    
+
     const response = await fetch("/api/upload", {
       method: "POST",
       headers: {
@@ -601,12 +702,12 @@ function setupEventListeners() {
       },
       body: formData
     });
-    
+
     if (!response.ok) {
       const err = await response.json();
       throw new Error(err.detail || "Failed to upload file");
     }
-    
+
     const data = await response.json();
     return data.url;
   }
@@ -641,7 +742,7 @@ function setupEventListeners() {
       if (state.activeTab === "profile") {
         fetchProfilePage();
       }
-    } catch (err) {}
+    } catch (err) { }
   });
 
   // Story Creation Button click
@@ -649,7 +750,7 @@ function setupEventListeners() {
     try {
       await apiRequest("/api/stories", "POST");
       fetchStories();
-    } catch (err) {}
+    } catch (err) { }
   });
 
   // Close Story viewer
@@ -665,11 +766,11 @@ function setupEventListeners() {
       const conv = await apiRequest(`/api/conversations?recipient_username=${username}`, "POST");
       document.getElementById("modal-new-chat").classList.add("hidden");
       document.getElementById("new-chat-form").reset();
-      
+
       // Refresh chats and open the conversation
       await fetchConversations();
       openChatRoom(conv.conversation_id, username);
-    } catch (err) {}
+    } catch (err) { }
   });
   // New Group Form Submit
   document.getElementById("new-group-form").addEventListener("submit", async (e) => {
@@ -686,7 +787,7 @@ function setupEventListeners() {
       });
       document.getElementById("modal-new-group").classList.add("hidden");
       document.getElementById("new-group-form").reset();
-      
+
       // Refresh chats and open the group conversation
       await fetchConversations();
       openChatRoom(conv.conversation_id, null, null, true, name);
@@ -743,13 +844,13 @@ function setupEventListeners() {
       await apiRequest(`/api/reels/${reelId}/comments`, "POST", { comment_text: text });
       input.value = "";
       await loadReelComments(reelId);
-    } catch (err) {}
+    } catch (err) { }
   });
 
   // Live Search listener
   const searchInput = document.getElementById("search-input");
   const clearSearchBtn = document.getElementById("btn-clear-search");
-  
+
   if (searchInput && clearSearchBtn) {
     searchInput.addEventListener("input", (e) => {
       const val = e.target.value.trim();
@@ -774,7 +875,7 @@ function setupEventListeners() {
   // Profile posts vs reels sub-tabs toggle
   const btnProfilePosts = document.getElementById("btn-profile-posts");
   const btnProfileReels = document.getElementById("btn-profile-reels");
-  
+
   if (btnProfilePosts && btnProfileReels) {
     btnProfilePosts.addEventListener("click", () => {
       btnProfilePosts.classList.add("active");
@@ -792,6 +893,27 @@ function setupEventListeners() {
   }
 }
 
+function saveState() {
+  if (!state.token) return;
+  sessionStorage.setItem("activeTab", state.activeTab || "feed");
+  if (state.viewingUsername) {
+    sessionStorage.setItem("viewingUsername", state.viewingUsername);
+  } else {
+    sessionStorage.removeItem("viewingUsername");
+  }
+  if (state.activeConversationId) {
+    sessionStorage.setItem("activeConversationId", state.activeConversationId);
+    sessionStorage.setItem("activeConversationPartner", state.activeConversationPartner || "");
+    sessionStorage.setItem("activeConversationIsGroup", state.activeConversationIsGroup);
+    sessionStorage.setItem("activeConversationGroupName", state.activeConversationGroupName || "");
+  } else {
+    sessionStorage.removeItem("activeConversationId");
+    sessionStorage.removeItem("activeConversationPartner");
+    sessionStorage.removeItem("activeConversationIsGroup");
+    sessionStorage.removeItem("activeConversationGroupName");
+  }
+}
+
 function switchTab(tab) {
   // Pause any active videos when navigating away from reels
   document.querySelectorAll(".reel-video-container video").forEach(v => v.pause());
@@ -800,12 +922,12 @@ function switchTab(tab) {
   document.querySelectorAll(".nav-item[data-tab]").forEach(item => {
     item.classList.toggle("active", item.getAttribute("data-tab") === tab);
   });
-  
+
   document.querySelectorAll(".tab-view").forEach(view => {
     view.classList.add("hidden");
   });
   document.getElementById(`tab-${tab}`).classList.remove("hidden");
-  
+
   if (tab === "feed") {
     fetchFeed();
     fetchStories();
@@ -820,6 +942,7 @@ function switchTab(tab) {
   } else if (tab === "notifications") {
     fetchNotificationsPage();
   }
+  saveState();
 }
 
 // ==========================================
@@ -828,11 +951,11 @@ function switchTab(tab) {
 async function fetchFeed() {
   const postsContainer = document.getElementById("feed-posts");
   postsContainer.innerHTML = `<div class="story-expires-indicator"><i class="fa-solid fa-spinner fa-spin"></i> Loading Feed...</div>`;
-  
+
   try {
     const feed = await apiRequest("/api/posts/feed");
     postsContainer.innerHTML = "";
-    
+
     if (feed.length === 0) {
       postsContainer.innerHTML = `
         <div class="chat-empty-state" style="margin-top: 50px;">
@@ -843,31 +966,31 @@ async function fetchFeed() {
       `;
       return;
     }
-    
+
     // Sort feed items descending (redundancy safety)
     for (const post of feed) {
       // Determine if post is a Reel (using visibility/caption metadata or just a check)
       const isReel = post.location === null && post.visibility === "reel_simulation"; // Simple metadata tag simulation
-      
+
       // Fetch likes list for this post from MongoDB
       let likes = [];
       try {
         likes = await apiRequest(`/api/likes?target_id=${post.post_id}&target_type=post`);
-      } catch (err) {}
-      
+      } catch (err) { }
+
       const likeCount = likes.length;
       const isLikedByMe = likes.some(l => l.profile_id === state.profile.profile_id);
-      
+
       // Fetch Comments list
       let comments = [];
       try {
         comments = await apiRequest(`/api/posts/${post.post_id}/comments`);
-      } catch (err) {}
-      
+      } catch (err) { }
+
       const card = document.createElement("div");
       card.className = "post-card";
-      const avatarHtml = post.profile_picture 
-        ? `<img src="${post.profile_picture}" alt="${post.username || 'user'}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">` 
+      const avatarHtml = post.profile_picture
+        ? `<img src="${post.profile_picture}" alt="${post.username || 'user'}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">`
         : (post.username ? post.username.substring(0, 2).toUpperCase() : 'U');
 
       let mediaHtml = '';
@@ -948,7 +1071,7 @@ async function fetchFeed() {
       const commentsContainer = card.querySelector(`#comments-container-${post.post_id}`);
       if (commentsContainer) renderComments(comments, commentsContainer, post.post_id);
     }
-  } catch (err) {}
+  } catch (err) { }
 }
 
 async function handleDeletePost(postId) {
@@ -956,7 +1079,7 @@ async function handleDeletePost(postId) {
   try {
     await apiRequest(`/api/posts/${postId}`, "DELETE");
     fetchFeed();
-  } catch (err) {}
+  } catch (err) { }
 }
 
 async function toggleLike(postId, alreadyLiked) {
@@ -967,7 +1090,7 @@ async function toggleLike(postId, alreadyLiked) {
       await apiRequest("/api/likes", "POST", { target_id: postId, target_type: "post" });
     }
     fetchFeed();
-  } catch (err) {}
+  } catch (err) { }
 }
 
 async function handleCommentSubmit(event, postId) {
@@ -975,7 +1098,7 @@ async function handleCommentSubmit(event, postId) {
   const input = document.getElementById(`comment-input-${postId}`);
   const text = input.value.trim();
   if (!text) return;
-  
+
   try {
     await apiRequest(`/api/posts/${postId}/comments`, "POST", { comment_text: text });
     input.value = "";
@@ -985,7 +1108,7 @@ async function handleCommentSubmit(event, postId) {
       const comments = await apiRequest(`/api/posts/${postId}/comments`);
       renderComments(comments, container, postId);
     }
-  } catch (err) {}
+  } catch (err) { }
 }
 
 // ==========================================
@@ -993,16 +1116,16 @@ async function handleCommentSubmit(event, postId) {
 // ==========================================
 async function fetchStories() {
   const tray = document.getElementById("stories-tray");
-  
+
   // Clear dynamic elements, preserve add button
   const createBtn = document.getElementById("btn-create-story");
   tray.innerHTML = "";
   tray.appendChild(createBtn);
-  
+
   try {
     const stories = await apiRequest("/api/stories/active");
     if (stories.length === 0) return;
-    
+
     // Group active stories by user profile username
     const grouped = {};
     for (const story of stories) {
@@ -1011,49 +1134,49 @@ async function fetchStories() {
       }
       grouped[story.username].push(story);
     }
-    
+
     // Render stories groups
     for (const username in grouped) {
       const userStories = grouped[username];
       const latestStory = userStories[0];
-      
+
       const item = document.createElement("div");
       item.className = "story-item";
       item.innerHTML = `
         <div class="story-avatar-container" onclick="openStoryViewer('${username}', ${JSON.stringify(userStories).replace(/"/g, '&quot;')})">
           <div class="story-ring-active"></div>
-          <div class="story-avatar">${username.substring(0,2).toUpperCase()}</div>
+          <div class="story-avatar">${username.substring(0, 2).toUpperCase()}</div>
         </div>
         <span class="story-username">@${username}</span>
       `;
       tray.appendChild(item);
     }
-  } catch (err) {}
+  } catch (err) { }
 }
 
 async function openStoryViewer(username, userStories) {
   const modal = document.getElementById("modal-story-viewer");
   modal.classList.remove("hidden");
-  
+
   document.getElementById("story-creator-username").textContent = `@${username}`;
-  document.getElementById("story-creator-avatar").textContent = username.substring(0,2).toUpperCase();
-  
+  document.getElementById("story-creator-avatar").textContent = username.substring(0, 2).toUpperCase();
+
   const activeStory = userStories[0]; // Renders the latest story first
-  
+
   // Time conversions
   const expiresAt = new Date(activeStory.expires_at);
   const diffHours = Math.ceil((expiresAt - new Date()) / (1000 * 60 * 60));
   document.getElementById("story-expires-timer").textContent = `${diffHours} hours`;
-  
+
   // Mark Viewed in backend
   try {
     await apiRequest(`/api/stories/${activeStory.story_id}/view`, "POST");
-  } catch (err) {}
+  } catch (err) { }
 
   // Animate Story view bar progress
   const progressFill = document.getElementById("story-progress-fill");
   progressFill.style.width = "0%";
-  
+
   let percentage = 0;
   clearInterval(state.storyTimer);
   state.storyTimer = setInterval(() => {
@@ -1073,20 +1196,24 @@ function closeStoryViewer() {
 // ==========================================
 // DIRECT MESSAGES (CHAT CLIENT)
 // ==========================================
-async function fetchConversations() {
+async function fetchConversations(searchQuery = null) {
   const container = document.getElementById("conv-items");
   if (!container.querySelector(".conv-item")) {
     container.innerHTML = `<div class="story-expires-indicator"><i class="fa-solid fa-spinner fa-spin"></i> Loading Chats...</div>`;
   }
-  
+
   try {
-    const list = await apiRequest("/api/conversations");
-    
+    let url = "/api/conversations";
+    if (searchQuery) {
+      url += `?q=${encodeURIComponent(searchQuery)}`;
+    }
+    const list = await apiRequest(url);
+
     if (list.length === 0) {
       container.innerHTML = `<div class="story-expires-indicator">No active chats. Click the icon to start one!</div>`;
       return;
     }
-    
+
     const items = [];
     for (const conv of list) {
       const isGroup = conv.conversation_type === "group";
@@ -1094,12 +1221,12 @@ async function fetchConversations() {
       const avatarUrl = conv.recipient_avatar;
       const lastMsg = conv.last_message || "Click to open chat history";
       const displayName = isGroup ? (conv.name || "Group Chat") : `@${partner}`;
-      
+
       const item = document.createElement("div");
       item.className = `conv-item ${sameId(state.activeConversationId, conv.conversation_id) ? 'active' : ''}`;
       item.setAttribute("data-conv-id", conv.conversation_id);
       item.onclick = () => openChatRoom(conv.conversation_id, partner, avatarUrl, isGroup, conv.name);
-      
+
       let avatarHtml = "";
       if (isGroup) {
         avatarHtml = `<div class="conv-avatar group"><i class="fa-solid fa-users"></i></div>`;
@@ -1119,12 +1246,12 @@ async function fetchConversations() {
       `;
       items.push(item);
     }
-    
+
     container.innerHTML = "";
     for (const item of items) {
       container.appendChild(item);
     }
-  } catch (err) {}
+  } catch (err) { }
 }
 
 function openChatRoom(conversationId, partnerUsername, partnerAvatar = null, isGroup = false, groupName = "") {
@@ -1138,31 +1265,31 @@ function openChatRoom(conversationId, partnerUsername, partnerAvatar = null, isG
   chatWindow.querySelector(".chat-active-state").classList.remove("hidden");
   chatWindow.querySelector(".chat-empty-state").classList.add("hidden");
 
-  const partnerNameEl   = document.getElementById("chat-partner-name");
+  const partnerNameEl = document.getElementById("chat-partner-name");
   const partnerHandleEl = document.getElementById("chat-partner-handle");
   const partnerAvatarEl = document.getElementById("chat-partner-avatar");
-  const profileLink     = document.getElementById("chat-partner-profile-link");
-  const infoBtn         = document.getElementById("btn-chat-view-profile");
+  const profileLink = document.getElementById("chat-partner-profile-link");
+  const infoBtn = document.getElementById("btn-chat-view-profile");
 
   if (isGroup) {
     const label = groupName || "Group Chat";
-    partnerNameEl.textContent   = label;
+    partnerNameEl.textContent = label;
     partnerHandleEl.textContent = `${(groupName ? groupName.toLowerCase().replace(/\s+/g, "_") : "group")}`;
-    partnerAvatarEl.innerHTML   = `<i class="fa-solid fa-users"></i>`;
+    partnerAvatarEl.innerHTML = `<i class="fa-solid fa-users"></i>`;
     partnerAvatarEl.style.background = "linear-gradient(135deg, #12c2e9, #c471ed, #f64f59)";
     // Info button opens group member panel
     if (infoBtn) infoBtn.onclick = () => openGroupInfoPanel(conversationId);
     if (profileLink) profileLink.style.cursor = "default";
     if (profileLink) profileLink.onclick = null;
   } else {
-    partnerNameEl.textContent   = partnerUsername;
+    partnerNameEl.textContent = partnerUsername;
     partnerHandleEl.textContent = `@${partnerUsername}`;
 
     if (partnerAvatar) {
       partnerAvatarEl.innerHTML = `<img src="${partnerAvatar}" alt="Avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
       partnerAvatarEl.style.background = "none";
     } else {
-      partnerAvatarEl.innerHTML  = partnerUsername.substring(0, 2).toUpperCase();
+      partnerAvatarEl.innerHTML = partnerUsername.substring(0, 2).toUpperCase();
       partnerAvatarEl.style.background = "var(--gradient-rainbow)";
     }
 
@@ -1172,7 +1299,7 @@ function openChatRoom(conversationId, partnerUsername, partnerAvatar = null, isG
       switchTab("profile");
     };
     if (profileLink) profileLink.onclick = goToProfile;
-    if (infoBtn)     infoBtn.onclick     = goToProfile;
+    if (infoBtn) infoBtn.onclick = goToProfile;
     if (profileLink) profileLink.style.cursor = "pointer";
   }
 
@@ -1184,21 +1311,22 @@ function openChatRoom(conversationId, partnerUsername, partnerAvatar = null, isG
   });
 
   fetchChatHistory(conversationId);
+  saveState();
 }
 
 async function fetchChatHistory(conversationId) {
   if (!sameId(state.activeConversationId, conversationId)) return;
-  
+
   const msgsContainer = document.getElementById("chat-messages-container");
   try {
     const history = await apiRequest(`/api/conversations/${conversationId}/messages`);
     msgsContainer.innerHTML = "";
-    
+
     if (history.length === 0) {
       msgsContainer.innerHTML = `<div class="story-expires-indicator">No messages yet. Say hello!</div>`;
       return;
     }
-    
+
     for (let i = 0; i < history.length; i++) {
       const msg = history[i];
       // Use string comparison to avoid 2^53 large-integer precision loss
@@ -1245,12 +1373,12 @@ async function fetchChatHistory(conversationId) {
         ${seenStatusHtml}
       `;
       msgsContainer.appendChild(wrapper);
-      
+
       if (!isOutgoing) {
         triggerMarkSeen(msg.message_id);
       }
     }
-    
+
     msgsContainer.scrollTop = msgsContainer.scrollHeight;
   } catch (err) {
     console.error("fetchChatHistory error:", err);
@@ -1264,7 +1392,7 @@ async function triggerMarkSeen(messageId) {
       method: "POST",
       headers: { "Authorization": `Bearer ${state.token}` }
     });
-  } catch (err) {}
+  } catch (err) { }
 }
 
 async function reactToMessage(messageId, emoji) {
@@ -1272,7 +1400,7 @@ async function reactToMessage(messageId, emoji) {
     await apiRequest(`/api/messages/${messageId}/react`, "POST", { emoji });
     // Refresh history
     fetchChatHistory(state.activeConversationId);
-  } catch (err) {}
+  } catch (err) { }
 }
 
 // ==========================================
@@ -1280,10 +1408,10 @@ async function reactToMessage(messageId, emoji) {
 // ==========================================
 async function fetchProfilePage(targetUsername = null) {
   if (!state.profile) return;
-  
+
   const isOwnProfile = !targetUsername || (state.profile && targetUsername === state.profile.username);
   const username = isOwnProfile ? state.profile.username : targetUsername;
-  
+
   let targetProfile = null;
   if (isOwnProfile) {
     targetProfile = state.profile;
@@ -1306,12 +1434,12 @@ async function fetchProfilePage(targetUsername = null) {
   }
   document.getElementById("profile-page-fullname").textContent = targetProfile.full_name || "No Display Name";
   document.getElementById("profile-page-bio").textContent = targetProfile.bio || "No bio yet.";
-  
+
   // Toggle buttons (Edit Profile vs Follow/Unfollow / Message)
   const editBtn = document.getElementById("profile-btn-edit");
   const followBtn = document.getElementById("profile-btn-follow");
   const messageBtn = document.getElementById("profile-btn-message");
-  
+
   if (isOwnProfile) {
     editBtn.classList.remove("hidden");
     followBtn.classList.add("hidden");
@@ -1346,15 +1474,15 @@ async function fetchProfilePage(targetUsername = null) {
     avatarWrapper.removeAttribute("title");
     avatarWrapper.querySelector(".profile-avatar-hover-overlay").style.display = "none";
   }
-  
+
   // Fetch followers and following list to get counts
   let followers = [];
   let following = [];
   try {
     followers = await apiRequest(`/api/${username}/followers`);
     following = await apiRequest(`/api/${username}/following`);
-  } catch (e) {}
-  
+  } catch (e) { }
+
   document.getElementById("profile-followers-count").textContent = followers.length;
   document.getElementById("profile-following-count").textContent = following.length;
 
@@ -1368,11 +1496,11 @@ async function fetchProfilePage(targetUsername = null) {
       followBtn.textContent = "Follow";
       followBtn.className = "btn btn-follow-user";
     }
-    
+
     // Set follow button click handler
     const newFollowBtn = followBtn.cloneNode(true);
     followBtn.parentNode.replaceChild(newFollowBtn, followBtn);
-    
+
     newFollowBtn.addEventListener("click", async () => {
       try {
         if (isFollowing) {
@@ -1406,12 +1534,12 @@ async function fetchProfilePage(targetUsername = null) {
   // 2. Fetch posts
   const grid = document.getElementById("profile-posts-grid");
   grid.innerHTML = `<div class="story-expires-indicator" style="grid-column: span 3;"><i class="fa-solid fa-spinner fa-spin"></i> Loading posts...</div>`;
-  
+
   try {
     const posts = await apiRequest(`/api/profiles/${username}/posts`);
     grid.innerHTML = "";
     document.getElementById("profile-posts-count").textContent = posts.length;
-    
+
     if (posts.length === 0) {
       grid.innerHTML = `<div class="story-expires-indicator" style="grid-column: span 3; padding: 40px 0;">No posts published yet.</div>`;
     } else {
@@ -1420,14 +1548,14 @@ async function fetchProfilePage(targetUsername = null) {
         let likes = [];
         try {
           likes = await apiRequest(`/api/likes?target_id=${post.post_id}&target_type=post`);
-        } catch (e) {}
-        
+        } catch (e) { }
+
         // Get comments count
         let comments = [];
         try {
           comments = await apiRequest(`/api/posts/${post.post_id}/comments`);
-        } catch (e) {}
-        
+        } catch (e) { }
+
         let mediaContent = '';
         if (post.media_url) {
           const isVideo = post.media_url.match(/\.(mp4|webm|ogg|mov|m4v)$/i) || post.visibility === 'reel';
@@ -1464,11 +1592,11 @@ async function fetchProfilePage(targetUsername = null) {
   // 3. Fetch and render user reels
   const reelsGrid = document.getElementById("profile-reels-grid");
   reelsGrid.innerHTML = `<div class="story-expires-indicator" style="grid-column: span 3;"><i class="fa-solid fa-spinner fa-spin"></i> Loading reels...</div>`;
-  
+
   try {
     const reels = await apiRequest(`/api/profiles/${username}/reels`);
     reelsGrid.innerHTML = "";
-    
+
     if (reels.length === 0) {
       reelsGrid.innerHTML = `<div class="story-expires-indicator" style="grid-column: span 3; padding: 40px 0;">No reels published yet.</div>`;
     } else {
@@ -1476,8 +1604,8 @@ async function fetchProfilePage(targetUsername = null) {
         let likes = [];
         try {
           likes = await apiRequest(`/api/likes?target_id=${reel.reel_id}&target_type=reel`);
-        } catch (e) {}
-        
+        } catch (e) { }
+
         let mediaContent = '';
         if (reel.media_url) {
           mediaContent = `<video src="${reel.media_url}" style="width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; z-index: 1;" muted></video>
@@ -1556,18 +1684,18 @@ async function performSearch(query) {
   const hashtagsBox = document.getElementById("search-results-hashtags");
   const postsBox = document.getElementById("search-results-posts");
   const reelsBox = document.getElementById("search-results-reels");
-  
+
   profilesBox.innerHTML = "Loading...";
   hashtagsBox.innerHTML = "";
   postsBox.innerHTML = "";
   reelsBox.innerHTML = "";
-  
+
   document.getElementById("search-results-box").classList.remove("hidden");
   document.getElementById("search-explore-box").classList.add("hidden");
 
   try {
     const results = await apiRequest(`/api/search?q=${encodeURIComponent(query)}`);
-    
+
     profilesBox.innerHTML = "";
     if (results.profiles.length === 0) {
       profilesBox.innerHTML = '<div class="story-expires-indicator">No profiles match.</div>';
@@ -1687,16 +1815,16 @@ async function fetchExploreGrid() {
 async function fetchReelsFeed() {
   const container = document.getElementById("reels-list-container");
   container.innerHTML = '<div class="story-expires-indicator" style="padding-top: 100px;"><i class="fa-solid fa-spinner fa-spin"></i> Loading Reels...</div>';
-  
+
   try {
     const reels = await apiRequest("/api/reels");
     container.innerHTML = "";
-    
+
     if (reels.length === 0) {
       container.innerHTML = '<div class="story-expires-indicator" style="padding-top: 100px;">No Reels published yet. Create one!</div>';
       return;
     }
-    
+
     await renderReels(reels);
     setupReelsPlaybackIntersection();
   } catch (err) {
@@ -1707,23 +1835,23 @@ async function fetchReelsFeed() {
 async function renderReels(reels) {
   const container = document.getElementById("reels-list-container");
   container.innerHTML = "";
-  
+
   for (const reel of reels) {
     const card = document.createElement("div");
     card.className = "reel-card";
     card.dataset.reelId = reel.reel_id;
-    
+
     let likes = [];
     try {
       likes = await apiRequest(`/api/likes?target_id=${reel.reel_id}&target_type=reel`);
-    } catch (e) {}
-    
+    } catch (e) { }
+
     const isLiked = state.profile && likes.some(l => l.profile_id === state.profile.profile_id);
-    
+
     let comments = [];
     try {
       comments = await apiRequest(`/api/reels/${reel.reel_id}/comments`);
-    } catch (e) {}
+    } catch (e) { }
 
     let videoContent = "";
     if (reel.media_url) {
@@ -1734,7 +1862,7 @@ async function renderReels(reels) {
                         <p>No Video Content</p>
                       </div>`;
     }
-    
+
     card.innerHTML = `
       <div class="reel-video-container">
         ${videoContent}
@@ -1768,7 +1896,7 @@ function setupReelsPlaybackIntersection() {
     rootMargin: "0px",
     threshold: 0.6
   };
-  
+
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       const video = entry.target.querySelector("video");
@@ -1781,7 +1909,7 @@ function setupReelsPlaybackIntersection() {
       }
     });
   }, options);
-  
+
   document.querySelectorAll(".reel-card").forEach(card => {
     observer.observe(card);
   });
@@ -1791,7 +1919,7 @@ async function toggleLikeReel(reelId, buttonEl) {
   const countEl = buttonEl.querySelector(".likes-count");
   let currentLikes = parseInt(countEl.textContent);
   const isLiked = buttonEl.classList.contains("liked");
-  
+
   try {
     if (isLiked) {
       await apiRequest(`/api/likes?target_id=${reelId}&target_type=reel`, "DELETE");
@@ -1818,16 +1946,16 @@ async function openReelComments(reelId) {
 async function loadReelComments(reelId) {
   const listContainer = document.getElementById("reel-comments-list");
   listContainer.innerHTML = '<div class="story-expires-indicator"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>';
-  
+
   try {
     const comments = await apiRequest(`/api/reels/${reelId}/comments`);
     listContainer.innerHTML = "";
-    
+
     if (comments.length === 0) {
       listContainer.innerHTML = '<div class="story-expires-indicator">No comments yet. Be the first!</div>';
       return;
     }
-    
+
     comments.forEach(c => {
       const row = document.createElement("div");
       row.className = "relation-item";
@@ -1851,12 +1979,23 @@ async function loadReelComments(reelId) {
 
 async function openGroupInfoPanel(conversationId) {
   const panel = document.getElementById("group-info-panel");
-  const list  = document.getElementById("group-members-list");
+  const list = document.getElementById("group-members-list");
   panel.classList.remove("hidden");
   list.innerHTML = '<div style="padding:20px;color:var(--text-secondary);text-align:center;"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>';
 
+  // Reset Add Member inputs
+  const searchInput = document.getElementById("add-member-search-input");
+  if (searchInput) searchInput.value = "";
+  const resultsDiv = document.getElementById("add-member-search-results");
+  if (resultsDiv) {
+    resultsDiv.innerHTML = "";
+    resultsDiv.classList.add("hidden");
+  }
+  state.activeGroupConversationId = conversationId;
+
   try {
     const members = await apiRequest(`/api/conversations/${conversationId}/members`);
+    state.activeGroupMembers = new Set(members.map(m => m.username));
     list.innerHTML = "";
     members.forEach(m => {
       const row = document.createElement("div");
@@ -1910,7 +2049,7 @@ async function openGroupInfoPanel(conversationId) {
               btn.dataset.following = "true";
               btn.className = "btn-follow-member following";
             }
-          } catch (err) {}
+          } catch (err) { }
         });
       }
 
@@ -1992,7 +2131,7 @@ function renderCommentItem(c, container, postId, isReply = false) {
         replyForm.classList.add("hidden");
         const repliesContainer = document.getElementById(`replies-${c.comment_id}`);
         renderCommentItem(newReply, repliesContainer, postId, true);
-      } catch (err) {}
+      } catch (err) { }
     });
   }
 }
@@ -2021,8 +2160,8 @@ async function fetchNotificationsPage() {
       item.setAttribute("data-id", n.notification_id);
 
       const actorInit = n.actor_username ? n.actor_username[0].toUpperCase() : "U";
-      const avatarHTML = n.actor_avatar 
-        ? `<img src="${n.actor_avatar}" alt="${n.actor_username}">` 
+      const avatarHTML = n.actor_avatar
+        ? `<img src="${n.actor_avatar}" alt="${n.actor_username}">`
         : `<div class="avatar-placeholder">${actorInit}</div>`;
 
       item.innerHTML = `
@@ -2033,9 +2172,9 @@ async function fetchNotificationsPage() {
           </div>
         </div>
         <div class="notification-actions">
-          ${!n.is_read 
-            ? `<button class="btn-mark-read" title="Mark as read"><i class="fa-solid fa-check"></i></button>` 
-            : `<span class="read-check"><i class="fa-solid fa-check-double"></i></span>`}
+          ${!n.is_read
+          ? `<button class="btn-mark-read" title="Mark as read"><i class="fa-solid fa-check"></i></button>`
+          : `<span class="read-check"><i class="fa-solid fa-check-double"></i></span>`}
         </div>
       `;
 

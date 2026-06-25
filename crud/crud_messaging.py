@@ -314,3 +314,72 @@ def add_message_reaction(
     db.commit()
     db.refresh(db_reaction)
     return db_reaction
+
+
+def add_members_to_group(
+    db: Session,
+    conversation_id: int,
+    usernames: List[str],
+    current_profile_id: int
+) -> models.Conversation:
+    """
+    Adds new members to an existing group conversation and notifies them via WebSocket.
+    """
+    # 1. Fetch conversation
+    conv = db.query(models.Conversation).filter(
+        models.Conversation.conversation_id == conversation_id
+    ).first()
+    if not conv:
+        raise ValueError("Conversation not found")
+    if conv.conversation_type != "group":
+        raise ValueError("Cannot add members to a non-group conversation")
+
+    # 2. Check if current user is a member
+    is_member = db.query(models.ConversationMember).filter(
+        models.ConversationMember.conversation_id == conversation_id,
+        models.ConversationMember.profile_id == current_profile_id
+    ).first()
+    if not is_member:
+        raise ValueError("You are not a member of this conversation")
+
+    # 3. Add new members
+    from crud import crud_sql
+    now = datetime.utcnow()
+    existing_member_ids = {m.profile_id for m in conv.members}
+
+    for username in usernames:
+        profile = crud_sql.get_profile_by_username(db, username)
+        if profile and profile.profile_id not in existing_member_ids:
+            new_member = models.ConversationMember(
+                conversation_id=conversation_id,
+                profile_id=profile.profile_id,
+                joined_at=now
+            )
+            db.add(new_member)
+            existing_member_ids.add(profile.profile_id)
+
+    db.commit()
+    db.refresh(conv)
+
+    # WebSocket notification to newly added members
+    try:
+        from dependencies import ws_manager
+        for username in usernames:
+            profile = crud_sql.get_profile_by_username(db, username)
+            if profile and profile.profile_id != current_profile_id:
+                payload = {
+                    "type": "new_conversation",
+                    "data": {
+                        "conversation_id": str(conv.conversation_id),
+                        "conversation_type": conv.conversation_type,
+                        "name": conv.name,
+                        "created_at": conv.created_at.isoformat(),
+                        "last_message": "You were added to this group"
+                    }
+                }
+                ws_manager.send_personal_message_sync(payload, profile.profile_id)
+    except Exception as err:
+        print(f"Failed to push new member WS event: {err}")
+
+    return conv
+

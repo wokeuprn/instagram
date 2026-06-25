@@ -28,6 +28,7 @@ from .messaging import (
     MessageResponse,
     ReactionRequest,
     GroupConversationCreateRequest,
+    AddGroupMembersRequest,
 )
 from .admin import (
     UserStatusUpdateRequest,
@@ -61,6 +62,7 @@ __all__ = [
     "MessageResponse",
     "ReactionRequest",
     "GroupConversationCreateRequest",
+    "AddGroupMembersRequest",
     "UserStatusUpdateRequest",
     "ProfileVerificationRequest",
     "AdminStatsResponse",

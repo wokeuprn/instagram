@@ -207,4 +207,8 @@ class NotificationResponse(BaseModel):
         from_attributes = True
 
 
+class AddGroupMembersRequest(BaseModel):
+    usernames: List[str]
+
+
 

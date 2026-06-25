@@ -45,3 +45,8 @@ class MessageResponse(BaseModel):
 
 class ReactionRequest(BaseModel):
     emoji: str = Field(..., description="The reaction emoji")
+
+
+class AddGroupMembersRequest(BaseModel):
+    usernames: List[str]
+

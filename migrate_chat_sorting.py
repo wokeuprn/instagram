@@ -6,6 +6,7 @@ from datetime import datetime
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from database.database import SessionLocal, engine
+# pyrefly: ignore [missing-import]
 from sqlalchemy import text
 
 def run_migration():
