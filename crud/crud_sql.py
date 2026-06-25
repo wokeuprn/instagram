@@ -1,6 +1,12 @@
+import os
+import sys
 from datetime import datetime, timedelta
 import secrets
 from typing import Optional
+
+# Add project root to sys.path to allow direct execution
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 # pyrefly: ignore [missing-import]
 from sqlalchemy.orm import Session
 # pyrefly: ignore [missing-import]

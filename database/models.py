@@ -1,8 +1,10 @@
 # pyrefly: ignore [missing-import]
+import database
+# pyrefly: ignore [missing-import]
 import sqlalchemy
 # pyrefly: ignore [missing-import]
 from sqlalchemy.orm import relationship
-from .database import Base
+from database import Base
 
 
 # ---------------------------------------------------------------------------
@@ -144,10 +146,13 @@ class PostComment(Base):
     comment_id = sqlalchemy.Column(sqlalchemy.BigInteger, primary_key=True)
     post_id = sqlalchemy.Column(sqlalchemy.BigInteger, sqlalchemy.ForeignKey("posts.post_id"))
     profile_id = sqlalchemy.Column(sqlalchemy.BigInteger, sqlalchemy.ForeignKey("profiles.profile_id"))
+    parent_comment_id = sqlalchemy.Column(sqlalchemy.BigInteger, sqlalchemy.ForeignKey("post_comments.comment_id"), nullable=True)
     comment_text = sqlalchemy.Column(sqlalchemy.Text)
     created_at = sqlalchemy.Column(sqlalchemy.DateTime)
 
     post = relationship("Post", back_populates="comments")
+    profile = relationship("Profile", foreign_keys=[profile_id])
+    replies = relationship("PostComment", backref=sqlalchemy.orm.backref("parent", remote_side="PostComment.comment_id"), foreign_keys="PostComment.parent_comment_id")
 
 
 # ---------------------------------------------------------------------------
@@ -373,6 +378,7 @@ class Conversation(Base):
     conversation_type = sqlalchemy.Column(sqlalchemy.String)
     created_at = sqlalchemy.Column(sqlalchemy.DateTime)
     name = sqlalchemy.Column(sqlalchemy.String, nullable=True)
+    last_message_at = sqlalchemy.Column(sqlalchemy.DateTime, default=sqlalchemy.func.now())
 
     members = relationship("ConversationMember", back_populates="conversation")
     messages = relationship("Message", back_populates="conversation")

@@ -1,17 +1,25 @@
+import os
+import sys
 from datetime import datetime
 import secrets
 from typing import List, Optional
-# pyrefly: ignore [missing-import]
+
+# Add project root to sys.path to allow direct execution
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# pyrefly: ignore[missing-import]
 from sqlalchemy.orm import Session
-# pyrefly: ignore [missing-import]
+# pyrefly: ignore[missing-import]
 from sqlalchemy import desc
 
+# pyrefly: ignore[missing-import]
 from database import models
+# pyrefly: ignore[missing-import]
 import schemas
 
 
 def generate_random_id() -> int:
-    return secrets.randbits(63)
+    return secrets.randbits(52)
 
 
 # ---------------------------------------------------------------------------
@@ -51,10 +59,12 @@ def get_or_create_direct_conversation(
 
     # Create new direct conversation
     conv_id = generate_random_id()
+    now = datetime.utcnow()
     db_conv = models.Conversation(
         conversation_id=conv_id,
         conversation_type="direct",
-        created_at=datetime.utcnow()
+        created_at=now,
+        last_message_at=now
     )
     db.add(db_conv)
 
@@ -62,12 +72,12 @@ def get_or_create_direct_conversation(
     member_a = models.ConversationMember(
         conversation_id=conv_id,
         profile_id=sender_id,
-        joined_at=datetime.utcnow()
+        joined_at=now
     )
     member_b = models.ConversationMember(
         conversation_id=conv_id,
         profile_id=receiver_id,
-        joined_at=datetime.utcnow()
+        joined_at=now
     )
     db.add(member_a)
     db.add(member_b)
@@ -87,18 +97,20 @@ def create_group_conversation(
     from crud import crud_sql
     
     conv_id = generate_random_id()
+    now = datetime.utcnow()
     db_conv = models.Conversation(
         conversation_id=conv_id,
         conversation_type="group",
         name=request.name,
-        created_at=datetime.utcnow()
+        created_at=now,
+        last_message_at=now
     )
     db.add(db_conv)
 
     sender_member = models.ConversationMember(
         conversation_id=conv_id,
         profile_id=sender_id,
-        joined_at=datetime.utcnow()
+        joined_at=now
     )
     db.add(sender_member)
 
@@ -108,7 +120,7 @@ def create_group_conversation(
             member = models.ConversationMember(
                 conversation_id=conv_id,
                 profile_id=recipient.profile_id,
-                joined_at=datetime.utcnow()
+                joined_at=now
             )
             db.add(member)
 
@@ -139,14 +151,14 @@ def create_group_conversation(
 
 def get_profile_conversations(db: Session, profile_id: int) -> List[models.Conversation]:
     """
-    Lists all conversations a profile belongs to.
+    Lists all conversations a profile belongs to, ordered by latest message activity.
     """
     return db.query(models.Conversation).join(
         models.ConversationMember,
         models.ConversationMember.conversation_id == models.Conversation.conversation_id
     ).filter(
         models.ConversationMember.profile_id == profile_id
-    ).order_by(desc(models.Conversation.created_at)).all()
+    ).order_by(desc(models.Conversation.last_message_at)).all()
 
 
 # ---------------------------------------------------------------------------
@@ -172,6 +184,12 @@ def send_message(
         sent_at=datetime.utcnow()
     )
     db.add(db_message)
+    
+    # Update last_message_at on the conversation
+    db.query(models.Conversation).filter(
+        models.Conversation.conversation_id == conversation_id
+    ).update({models.Conversation.last_message_at: db_message.sent_at})
+
     db.commit()
     db.refresh(db_message)
 

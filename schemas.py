@@ -182,6 +182,7 @@ class MessageResponse(BaseModel):
     sent_at: datetime
     sender_username: Optional[str] = None
     sender_avatar: Optional[str] = None
+    seen_by_usernames: Optional[List[str]] = None
 
     class Config:
         from_attributes = True
@@ -189,3 +190,21 @@ class MessageResponse(BaseModel):
 
 class ReactionRequest(BaseModel):
     emoji: str = Field(..., description="The reaction emoji")
+
+
+class NotificationResponse(BaseModel):
+    notification_id: IntAsString
+    receiver_id: IntAsString
+    user_id: IntAsString
+    notification_type: str
+    reference_id: Optional[IntAsString] = None
+    is_read: bool
+    actor_username: Optional[str] = None
+    actor_avatar: Optional[str] = None
+    content: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+

@@ -169,7 +169,7 @@ function connectWebSocket() {
             triggerMarkSeen(msg.message_id);
           }
         } else {
-          showToast(`New message: ${msg.content}`, "info");
+          showToast(`got 1 message from ${msg.sender_username || msg.sender_id}`, "info");
         }
         // Always refresh conversations to update the last message preview
         if (state.activeTab === "messages") {
@@ -224,6 +224,11 @@ function appendMessageToUI(msg) {
   const isOutgoing = state.profile && sameId(msg.sender_id, state.profile.profile_id);
   const reactionString = msg.emoji_reaction || "";
 
+  // Clear previous "Sent" indicators on outgoing messages (new message becomes the latest)
+  if (isOutgoing) {
+    msgsContainer.querySelectorAll(".msg-wrapper.outgoing .msg-seen-status").forEach(el => el.remove());
+  }
+
   const wrapper = document.createElement("div");
   wrapper.className = `msg-wrapper ${isOutgoing ? 'outgoing' : 'incoming'}`;
   wrapper.setAttribute("data-message-id", msg.message_id);
@@ -246,7 +251,7 @@ function appendMessageToUI(msg) {
       <button class="reaction-trigger-btn" onclick="reactToMessage(${msg.message_id}, '❤️')" title="React ❤️">
         <i class="fa-regular fa-heart"></i>
       </button>
-    ` : ''}
+    ` : `<div class="msg-seen-status">Sent</div>`}
   `;
   msgsContainer.appendChild(wrapper);
   msgsContainer.scrollTop = msgsContainer.scrollHeight;
@@ -400,6 +405,151 @@ function setupEventListeners() {
   setupModal("btn-chat-empty-start", "modal-new-chat", "btn-close-new-chat");
   setupModal("btn-new-group", "modal-new-group", "btn-close-new-group");
 
+  // ── Drag-and-drop Create Modal ──────────────────────────────────────────
+
+  // Reset create modal when opened
+  document.getElementById("btn-open-create").addEventListener("click", () => {
+    document.getElementById("create-drop-zone").classList.remove("hidden");
+    document.getElementById("create-preview-pane").classList.add("hidden");
+    document.getElementById("create-preview-media").innerHTML = "";
+    document.getElementById("create-caption").value = "";
+    document.getElementById("create-location").value = "";
+    document.getElementById("create-file").value = "";
+  });
+
+  function showFilePreview(file) {
+    const dropZone = document.getElementById("create-drop-zone");
+    const previewPane = document.getElementById("create-preview-pane");
+    const previewMedia = document.getElementById("create-preview-media");
+
+    dropZone.classList.add("hidden");
+    previewPane.classList.remove("hidden");
+    previewMedia.innerHTML = "";
+
+    const url = URL.createObjectURL(file);
+    if (file.type.startsWith("video/")) {
+      const v = document.createElement("video");
+      v.src = url; v.controls = true; v.style.maxWidth = "100%";
+      previewMedia.appendChild(v);
+      document.getElementById("grp-duration").style.display = "block";
+      document.getElementById("create-type").value = "reel";
+    } else {
+      const img = document.createElement("img");
+      img.src = url;
+      previewMedia.appendChild(img);
+      document.getElementById("grp-duration").style.display = "none";
+      document.getElementById("create-type").value = "post";
+    }
+  }
+
+  const dropZone = document.getElementById("create-drop-zone");
+
+  dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("drag-over"); });
+  dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
+  dropZone.addEventListener("drop", (e) => {
+    e.preventDefault(); dropZone.classList.remove("drag-over");
+    const file = e.dataTransfer.files[0];
+    if (file) { document.getElementById("create-file")._droppedFile = file; showFilePreview(file); }
+  });
+
+  document.getElementById("create-file").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (file) showFilePreview(file);
+  });
+
+  // Share button inside preview pane
+  document.getElementById("btn-create-share").addEventListener("click", async () => {
+    const fileInput = document.getElementById("create-file");
+    const droppedFile = fileInput._droppedFile;
+    const file = (fileInput.files && fileInput.files[0]) || droppedFile;
+    if (!file) { showToast("Please select a file first", "error"); return; }
+
+    const type = document.getElementById("create-type").value;
+    const caption = document.getElementById("create-caption").value;
+
+    try {
+      // upload using FormData directly
+      const formData = new FormData();
+      formData.append("file", file);
+      const uploadResp = await fetch("/api/upload", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${state.token}` },
+        body: formData
+      });
+      if (!uploadResp.ok) throw new Error("Upload failed");
+      const { url: mediaUrl } = await uploadResp.json();
+
+      if (type === "reel") {
+        const duration = parseInt(document.getElementById("create-duration").value) || 15;
+        await apiRequest("/api/reels", "POST", { caption, duration, media_url: mediaUrl });
+      } else {
+        const location = document.getElementById("create-location").value;
+        await apiRequest("/api/posts", "POST", { caption, location, media_url: mediaUrl });
+      }
+      document.getElementById("modal-create").classList.add("hidden");
+      fileInput._droppedFile = null;
+      fetchFeed();
+      showToast("Posted!", "success");
+    } catch (err) {}
+  });
+
+  // ── Avatar upload zone in Edit Profile ─────────────────────────────────
+
+  const avatarDropZone = document.getElementById("avatar-drop-zone");
+  const avatarFileInput = document.getElementById("edit-profile-picture-file");
+
+  avatarDropZone.addEventListener("click", () => avatarFileInput.click());
+
+  avatarFileInput.addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const preview = document.getElementById("avatar-upload-preview");
+    preview.innerHTML = `<img src="${url}" alt="avatar preview">`;
+  });
+
+  avatarDropZone.addEventListener("dragover", (e) => { e.preventDefault(); avatarDropZone.style.borderColor = "var(--accent-blue)"; });
+  avatarDropZone.addEventListener("dragleave", () => { avatarDropZone.style.borderColor = ""; });
+  avatarDropZone.addEventListener("drop", (e) => {
+    e.preventDefault(); avatarDropZone.style.borderColor = "";
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      const dt = new DataTransfer(); dt.items.add(file); avatarFileInput.files = dt.files;
+      const url = URL.createObjectURL(file);
+      document.getElementById("avatar-upload-preview").innerHTML = `<img src="${url}" alt="avatar preview">`;
+    }
+  });
+
+  // ── Share Post / Reel modal ─────────────────────────────────────────────
+
+  let _shareTarget = null; // { type: 'post'|'reel', id: ... }
+
+  window.openShareModal = function(type, id) {
+    _shareTarget = { type, id };
+    document.getElementById("share-recipient").value = "";
+    document.getElementById("modal-share").classList.remove("hidden");
+  };
+
+  document.getElementById("btn-close-share").addEventListener("click", () => {
+    document.getElementById("modal-share").classList.add("hidden");
+  });
+
+  document.getElementById("btn-confirm-share").addEventListener("click", async () => {
+    const recipient = document.getElementById("share-recipient").value.trim();
+    if (!recipient || !_shareTarget) return;
+    try {
+      await apiRequest(`/api/${_shareTarget.type}s/${_shareTarget.id}/share?recipient_username=${encodeURIComponent(recipient)}`, "POST");
+      document.getElementById("modal-share").classList.add("hidden");
+      showToast(`Shared to @${recipient}!`, "success");
+    } catch (err) {}
+  });
+
+  // ── Group info panel ────────────────────────────────────────────────────
+
+  document.getElementById("btn-close-group-info").addEventListener("click", () => {
+    document.getElementById("group-info-panel").classList.add("hidden");
+  });
+
   // Relations modal triggers
   document.getElementById("btn-close-relations").addEventListener("click", () => {
     document.getElementById("modal-relations").classList.add("hidden");
@@ -461,28 +611,6 @@ function setupEventListeners() {
     return data.url;
   }
 
-  // Form Publishing Creation
-  document.getElementById("create-post-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const type = document.getElementById("create-type").value;
-    const caption = document.getElementById("create-caption").value;
-    
-    try {
-      const mediaUrl = await uploadFileHelper("create-file");
-      
-      if (type === "reel") {
-        const duration = parseInt(document.getElementById("create-duration").value);
-        await apiRequest("/api/reels", "POST", { caption, duration, media_url: mediaUrl });
-      } else {
-        const location = document.getElementById("create-location").value;
-        await apiRequest("/api/posts", "POST", { caption, location, media_url: mediaUrl });
-      }
-      
-      document.getElementById("modal-create").classList.add("hidden");
-      document.getElementById("create-post-form").reset();
-      fetchFeed(); // Refresh posts
-    } catch (err) {}
-  });
 
   // Edit Profile Form Submit
   document.getElementById("edit-profile-form").addEventListener("submit", async (e) => {
@@ -689,6 +817,8 @@ function switchTab(tab) {
     fetchReelsFeed();
   } else if (tab === "search") {
     fetchExploreGrid();
+  } else if (tab === "notifications") {
+    fetchNotificationsPage();
   }
 }
 
@@ -794,6 +924,7 @@ async function fetchFeed() {
               <i class="${isLikedByMe ? 'fa-solid' : 'fa-regular'} fa-heart"></i>
             </button>
             <button onclick="document.getElementById('comment-input-${post.post_id}').focus()"><i class="fa-regular fa-comment"></i></button>
+            <button class="btn-share-post" onclick="openShareModal('post', ${post.post_id})" title="Share"><i class="fa-regular fa-paper-plane"></i></button>
           </div>
           
           <div class="like-count">${likeCount} likes</div>
@@ -803,13 +934,7 @@ async function fetchFeed() {
             <span class="post-caption-text">${post.caption || ''}</span>
           </div>
           
-          <div class="post-comments-container">
-            ${comments.map(c => `
-              <div class="comment-row">
-                <span class="comment-username">@${c.username || 'commenter'}</span>
-                <span class="comment-text">${c.comment_text}</span>
-              </div>
-            `).join("")}
+          <div class="post-comments-container" id="comments-container-${post.post_id}">
           </div>
           
           <form class="comment-input-area" onsubmit="handleCommentSubmit(event, ${post.post_id})">
@@ -819,6 +944,9 @@ async function fetchFeed() {
         </div>
       `;
       postsContainer.appendChild(card);
+      // Render nested comments into dedicated container
+      const commentsContainer = card.querySelector(`#comments-container-${post.post_id}`);
+      if (commentsContainer) renderComments(comments, commentsContainer, post.post_id);
     }
   } catch (err) {}
 }
@@ -851,7 +979,12 @@ async function handleCommentSubmit(event, postId) {
   try {
     await apiRequest(`/api/posts/${postId}/comments`, "POST", { comment_text: text });
     input.value = "";
-    fetchFeed();
+    // Refresh only the comments section, not the whole feed
+    const container = document.getElementById(`comments-container-${postId}`);
+    if (container) {
+      const comments = await apiRequest(`/api/posts/${postId}/comments`);
+      renderComments(comments, container, postId);
+    }
   } catch (err) {}
 }
 
@@ -1017,9 +1150,10 @@ function openChatRoom(conversationId, partnerUsername, partnerAvatar = null, isG
     partnerHandleEl.textContent = `${(groupName ? groupName.toLowerCase().replace(/\s+/g, "_") : "group")}`;
     partnerAvatarEl.innerHTML   = `<i class="fa-solid fa-users"></i>`;
     partnerAvatarEl.style.background = "linear-gradient(135deg, #12c2e9, #c471ed, #f64f59)";
-    // Groups: info button is cosmetic only
-    if (infoBtn) infoBtn.onclick = null;
+    // Info button opens group member panel
+    if (infoBtn) infoBtn.onclick = () => openGroupInfoPanel(conversationId);
     if (profileLink) profileLink.style.cursor = "default";
+    if (profileLink) profileLink.onclick = null;
   } else {
     partnerNameEl.textContent   = partnerUsername;
     partnerHandleEl.textContent = `@${partnerUsername}`;
@@ -1053,7 +1187,7 @@ function openChatRoom(conversationId, partnerUsername, partnerAvatar = null, isG
 }
 
 async function fetchChatHistory(conversationId) {
-  if (state.activeConversationId !== conversationId) return;
+  if (!sameId(state.activeConversationId, conversationId)) return;
   
   const msgsContainer = document.getElementById("chat-messages-container");
   try {
@@ -1065,11 +1199,17 @@ async function fetchChatHistory(conversationId) {
       return;
     }
     
-    for (const msg of history) {
+    for (let i = 0; i < history.length; i++) {
+      const msg = history[i];
       // Use string comparison to avoid 2^53 large-integer precision loss
       const isOutgoing = state.profile && sameId(msg.sender_id, state.profile.profile_id);
       const reactionString = msg.emoji_reaction || "";
-      
+
+      // Determine if this is the last outgoing message (to show seen status)
+      const isLastOutgoing = isOutgoing && !history.slice(i + 1).some(
+        m => state.profile && sameId(m.sender_id, state.profile.profile_id)
+      );
+
       const wrapper = document.createElement("div");
       wrapper.className = `msg-wrapper ${isOutgoing ? 'outgoing' : 'incoming'}`;
       wrapper.setAttribute("data-message-id", msg.message_id);
@@ -1078,6 +1218,15 @@ async function fetchChatHistory(conversationId) {
       if (!isOutgoing && state.activeConversationIsGroup) {
         const senderName = msg.sender_username || `user_${msg.sender_id}`;
         senderLabelHtml = `<div class="msg-sender-label">@${senderName}</div>`;
+      }
+
+      // Build seen status for last outgoing message
+      let seenStatusHtml = "";
+      if (isOutgoing && isLastOutgoing && msg.seen_by_usernames && msg.seen_by_usernames.length > 0) {
+        const seenNames = msg.seen_by_usernames.join(", ");
+        seenStatusHtml = `<div class="msg-seen-status">Seen by ${seenNames}</div>`;
+      } else if (isOutgoing && isLastOutgoing) {
+        seenStatusHtml = `<div class="msg-seen-status">Sent</div>`;
       }
 
       wrapper.innerHTML = `
@@ -1093,6 +1242,7 @@ async function fetchChatHistory(conversationId) {
             <i class="fa-regular fa-heart"></i>
           </button>
         ` : ''}
+        ${seenStatusHtml}
       `;
       msgsContainer.appendChild(wrapper);
       
@@ -1694,3 +1844,240 @@ async function loadReelComments(reelId) {
     listContainer.innerHTML = '<div class="story-expires-indicator" style="color:var(--accent-red);">Failed to load comments.</div>';
   }
 }
+
+// ============================================================
+// GROUP INFO PANEL
+// ============================================================
+
+async function openGroupInfoPanel(conversationId) {
+  const panel = document.getElementById("group-info-panel");
+  const list  = document.getElementById("group-members-list");
+  panel.classList.remove("hidden");
+  list.innerHTML = '<div style="padding:20px;color:var(--text-secondary);text-align:center;"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>';
+
+  try {
+    const members = await apiRequest(`/api/conversations/${conversationId}/members`);
+    list.innerHTML = "";
+    members.forEach(m => {
+      const row = document.createElement("div");
+      row.className = "group-member-row";
+
+      const avatarHTML = m.profile_picture
+        ? `<img src="${m.profile_picture}" alt="avatar">`
+        : (m.username || "U").substring(0, 2).toUpperCase();
+
+      const followBtn = m.is_self
+        ? ""
+        : `<button class="btn-follow-member ${m.is_following ? 'following' : 'not-following'}"
+             data-username="${m.username}"
+             data-following="${m.is_following}">
+             ${m.is_following ? "Following" : "Follow"}
+           </button>`;
+
+      row.innerHTML = `
+        <div class="group-member-avatar">${avatarHTML}</div>
+        <div class="group-member-info">
+          <div class="group-member-name">${m.full_name || m.username}</div>
+          <div class="group-member-handle">@${m.username}</div>
+        </div>
+        ${followBtn}
+      `;
+
+      // Navigate to member profile on row click
+      row.addEventListener("click", (e) => {
+        if (e.target.classList.contains("btn-follow-member")) return;
+        state.viewingUsername = m.username;
+        panel.classList.add("hidden");
+        switchTab("profile");
+      });
+
+      // Follow / unfollow toggle
+      const btn = row.querySelector(".btn-follow-member");
+      if (btn) {
+        btn.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          const username = btn.dataset.username;
+          const isFollowing = btn.dataset.following === "true";
+          try {
+            if (isFollowing) {
+              await apiRequest(`/api/unfollow/${username}`, "POST");
+              btn.textContent = "Follow";
+              btn.dataset.following = "false";
+              btn.className = "btn-follow-member not-following";
+            } else {
+              await apiRequest(`/api/follow/${username}`, "POST");
+              btn.textContent = "Following";
+              btn.dataset.following = "true";
+              btn.className = "btn-follow-member following";
+            }
+          } catch (err) {}
+        });
+      }
+
+      list.appendChild(row);
+    });
+  } catch (err) {
+    list.innerHTML = '<div style="padding:20px;color:var(--accent-red);text-align:center;">Failed to load members.</div>';
+  }
+}
+
+// ============================================================
+// NESTED COMMENTS RENDERER
+// ============================================================
+
+function renderComments(comments, container, postId) {
+  container.innerHTML = "";
+  if (!comments || comments.length === 0) {
+    container.innerHTML = '<p style="color:var(--text-secondary);font-size:0.85rem;padding:8px 0;">No comments yet.</p>';
+    return;
+  }
+  comments.forEach(c => renderCommentItem(c, container, postId));
+}
+
+function renderCommentItem(c, container, postId, isReply = false) {
+  const item = document.createElement("div");
+  item.className = "comment-item";
+
+  const avatarContent = c.profile_picture
+    ? `<img src="${c.profile_picture}" alt="avatar">`
+    : (c.username || "U").substring(0, 2).toUpperCase();
+
+  item.innerHTML = `
+    <div class="comment-main">
+      <div class="comment-avatar">${avatarContent}</div>
+      <div class="comment-body">
+        <span class="comment-username">@${c.username || "user"}</span>
+        <span class="comment-text-content">${c.comment_text}</span>
+      </div>
+    </div>
+    <div class="comment-actions">
+      ${!isReply ? `<button class="btn-reply-comment" data-comment-id="${c.comment_id}">Reply</button>` : ""}
+    </div>
+    <div class="comment-replies" id="replies-${c.comment_id}"></div>
+    ${!isReply ? `<form class="comment-reply-form hidden" id="reply-form-${c.comment_id}">
+      <input type="text" placeholder="Write a reply..." autocomplete="off">
+      <button type="submit">Post</button>
+    </form>` : ""}
+  `;
+
+  container.appendChild(item);
+
+  // Render nested replies
+  if (c.replies && c.replies.length > 0) {
+    const repliesContainer = item.querySelector(`#replies-${c.comment_id}`);
+    c.replies.forEach(r => renderCommentItem(r, repliesContainer, postId, true));
+  }
+
+  // Toggle reply form
+  const replyBtn = item.querySelector(".btn-reply-comment");
+  if (replyBtn) {
+    replyBtn.addEventListener("click", () => {
+      const form = document.getElementById(`reply-form-${c.comment_id}`);
+      form.classList.toggle("hidden");
+      if (!form.classList.contains("hidden")) form.querySelector("input").focus();
+    });
+  }
+
+  // Submit reply
+  const replyForm = document.getElementById(`reply-form-${c.comment_id}`);
+  if (replyForm) {
+    replyForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const input = replyForm.querySelector("input");
+      const text = input.value.trim();
+      if (!text) return;
+      try {
+        const newReply = await apiRequest(`/api/posts/${postId}/comments/${c.comment_id}/replies`, "POST", { comment_text: text });
+        input.value = "";
+        replyForm.classList.add("hidden");
+        const repliesContainer = document.getElementById(`replies-${c.comment_id}`);
+        renderCommentItem(newReply, repliesContainer, postId, true);
+      } catch (err) {}
+    });
+  }
+}
+
+// ==========================================
+// NOTIFICATIONS RENDERING
+// ==========================================
+async function fetchNotificationsPage() {
+  const container = document.getElementById("notifications-list");
+  if (!container) return;
+
+  container.innerHTML = `<div class="story-expires-indicator"><i class="fa-solid fa-spinner fa-spin"></i> Loading notifications...</div>`;
+
+  try {
+    const list = await apiRequest("/api/notifications");
+    container.innerHTML = "";
+
+    if (list.length === 0) {
+      container.innerHTML = `<div class="story-expires-indicator">No notifications yet.</div>`;
+      return;
+    }
+
+    list.forEach(n => {
+      const item = document.createElement("div");
+      item.className = `notification-item ${n.is_read ? 'read' : 'unread'}`;
+      item.setAttribute("data-id", n.notification_id);
+
+      const actorInit = n.actor_username ? n.actor_username[0].toUpperCase() : "U";
+      const avatarHTML = n.actor_avatar 
+        ? `<img src="${n.actor_avatar}" alt="${n.actor_username}">` 
+        : `<div class="avatar-placeholder">${actorInit}</div>`;
+
+      item.innerHTML = `
+        <div class="notification-left">
+          <div class="notification-avatar">${avatarHTML}</div>
+          <div class="notification-info">
+            <span class="notification-text">${n.content}</span>
+          </div>
+        </div>
+        <div class="notification-actions">
+          ${!n.is_read 
+            ? `<button class="btn-mark-read" title="Mark as read"><i class="fa-solid fa-check"></i></button>` 
+            : `<span class="read-check"><i class="fa-solid fa-check-double"></i></span>`}
+        </div>
+      `;
+
+      // Navigate when clicking on left part of notification
+      item.querySelector(".notification-left").addEventListener("click", () => {
+        if (n.notification_type === "follow" || n.notification_type === "follow_accept") {
+          if (n.actor_username) {
+            state.viewingUsername = n.actor_username;
+            switchTab("profile");
+          }
+        } else if (n.notification_type === "message") {
+          state.activeConversationId = parseInt(n.reference_id);
+          switchTab("messages");
+        } else if (n.notification_type === "like" || n.notification_type === "comment") {
+          // Open the specific post (if we are on Feed page, scroll to it, or just show feed)
+          switchTab("feed");
+        }
+      });
+
+      // Mark read click event
+      const readBtn = item.querySelector(".btn-mark-read");
+      if (readBtn) {
+        readBtn.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          try {
+            await apiRequest(`/api/notifications/${n.notification_id}/read`, "PUT");
+            item.classList.remove("unread");
+            item.classList.add("read");
+            const actionsDiv = item.querySelector(".notification-actions");
+            actionsDiv.innerHTML = `<span class="read-check"><i class="fa-solid fa-check-double"></i></span>`;
+          } catch (err) {
+            console.error("Failed to mark notification read:", err);
+          }
+        });
+      }
+
+      container.appendChild(item);
+    });
+  } catch (err) {
+    console.error("Failed to load notifications page:", err);
+    container.innerHTML = `<div class="story-expires-indicator">Error loading notifications.</div>`;
+  }
+}
+
+

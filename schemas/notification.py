@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Optional
 # pyrefly: ignore [missing-import]
 from pydantic import BaseModel, BeforeValidator
 
@@ -11,6 +11,10 @@ class NotificationResponse(BaseModel):
     notification_type: str
     reference_id: IntAsString
     is_read: bool
+    actor_username: Optional[str] = None
+    actor_avatar: Optional[str] = None
+    content: Optional[str] = None
 
     class Config:
         from_attributes = True
+

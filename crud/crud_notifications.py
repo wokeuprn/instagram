@@ -1,5 +1,11 @@
+import os
+import sys
 import secrets
 from typing import List, Optional
+
+# Add project root to sys.path to allow direct execution
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 # pyrefly: ignore [missing-import]
 from sqlalchemy.orm import Session
 from database import models
@@ -24,7 +30,7 @@ def create_notification(
     if receiver_id == sender_profile_id:
         return None
 
-    notification_id = secrets.randbits(63)
+    notification_id = secrets.randbits(52)
     db_noti = models.Notification(
         notification_id=notification_id,
         receiver_id=receiver_id,
@@ -55,7 +61,7 @@ def create_notification(
         elif notification_type == "comment":
             content = f"@{actor_username} commented on your post."
         elif notification_type == "message":
-            content = f"New message from @{actor_username}."
+            content = f"got 1 message from {actor_username}"
 
         payload = {
             "notification_id": db_noti.notification_id,

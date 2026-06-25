@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, Annotated
+from typing import Optional, Annotated, List
 # pyrefly: ignore [missing-import]
 from pydantic import BaseModel, Field, BeforeValidator
 
@@ -40,11 +40,17 @@ class CommentResponse(BaseModel):
     comment_id: IntAsString
     post_id: IntAsString
     profile_id: IntAsString
+    parent_comment_id: Optional[IntAsString] = None
     comment_text: str
+    username: Optional[str] = None
+    profile_picture: Optional[str] = None
     created_at: datetime
+    replies: Optional[List["CommentResponse"]] = []
 
     class Config:
         from_attributes = True
+
+CommentResponse.model_rebuild()
 
 
 class ReelCreateRequest(BaseModel):

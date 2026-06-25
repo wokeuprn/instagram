@@ -4,136 +4,72 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Instagram Clone Client</title>
-  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Custom Stylesheet -->
-  <link rel="stylesheet" href="/static/style.css?v=6">
+  <link rel="stylesheet" href="/static/style.css?v=7">
 </head>
 <body class="dark-mode">
 
-  <!-- ========================================== -->
-  <!-- AUTHENTICATION CARD SCREEN -->
-  <!-- ========================================== -->
+  <!-- AUTH SCREEN -->
   <div id="auth-screen" class="auth-screen">
     <div class="auth-card">
       <div class="auth-header">
         <h1 class="logo-text">Instagram</h1>
         <p class="subtitle">FastAPI & MongoDB/Postgres Sandbox</p>
       </div>
-
-      <!-- Login Form -->
       <form id="login-form" class="auth-form active">
-        <div class="input-group">
-          <i class="fa-regular fa-user"></i>
-          <input type="text" id="login-username" placeholder="Username or Email" required autocomplete="username">
-        </div>
-        <div class="input-group">
-          <i class="fa-solid fa-lock"></i>
-          <input type="password" id="login-password" placeholder="Password" required autocomplete="current-password">
-        </div>
+        <div class="input-group"><i class="fa-regular fa-user"></i><input type="text" id="login-username" placeholder="Username or Email" required autocomplete="username"></div>
+        <div class="input-group"><i class="fa-solid fa-lock"></i><input type="password" id="login-password" placeholder="Password" required autocomplete="current-password"></div>
         <button type="submit" class="btn btn-primary">Log In</button>
         <p class="toggle-text">Don't have an account? <a href="#" id="to-register">Sign up</a></p>
       </form>
-
-      <!-- Registration Form -->
       <form id="register-form" class="auth-form">
-        <div class="input-group">
-          <i class="fa-regular fa-envelope"></i>
-          <input type="email" id="reg-email" placeholder="Email Address" required autocomplete="email">
-        </div>
-        <div class="input-group">
-          <i class="fa-regular fa-address-card"></i>
-          <input type="text" id="reg-fullname" placeholder="Full Name" required autocomplete="name">
-        </div>
-        <div class="input-group">
-          <i class="fa-regular fa-user"></i>
-          <input type="text" id="reg-username" placeholder="Username" required autocomplete="username">
-        </div>
-        <div class="input-group">
-          <i class="fa-solid fa-phone"></i>
-          <input type="text" id="reg-phone" placeholder="Phone Number (Optional)" autocomplete="tel">
-        </div>
-        <div class="input-group">
-          <i class="fa-solid fa-lock"></i>
-          <input type="password" id="reg-password" placeholder="Password (Min 6 characters)" required autocomplete="new-password">
-        </div>
+        <div class="input-group"><i class="fa-regular fa-envelope"></i><input type="email" id="reg-email" placeholder="Email Address" required autocomplete="email"></div>
+        <div class="input-group"><i class="fa-regular fa-address-card"></i><input type="text" id="reg-fullname" placeholder="Full Name" required autocomplete="name"></div>
+        <div class="input-group"><i class="fa-regular fa-user"></i><input type="text" id="reg-username" placeholder="Username" required autocomplete="username"></div>
+        <div class="input-group"><i class="fa-solid fa-phone"></i><input type="text" id="reg-phone" placeholder="Phone Number (Optional)" autocomplete="tel"></div>
+        <div class="input-group"><i class="fa-solid fa-lock"></i><input type="password" id="reg-password" placeholder="Password (Min 6 characters)" required autocomplete="new-password"></div>
         <button type="submit" class="btn btn-primary">Sign Up</button>
         <p class="toggle-text">Have an account? <a href="#" id="to-login">Log in</a></p>
       </form>
     </div>
   </div>
 
-  <!-- ========================================== -->
-  <!-- MAIN APP APPLICATION GRID -->
-  <!-- ========================================== -->
-  <div id="main-app" class="main-app hidden">
-    <!-- Sidebar Navigation -->
+  <!-- MAIN APP -->
+2  <div id="main-app" class="main-app hidden">
     <aside class="sidebar">
-      <div class="sidebar-header">
-        <h1 class="logo-text">Instagram</h1>
-      </div>
+      <div class="sidebar-header"><h1 class="logo-text">Instagram</h1></div>
       <nav class="nav-menu">
-        <a href="#" class="nav-item active" data-tab="feed">
-          <i class="fa-solid fa-house"></i>
-          <span>Home Feed</span>
-        </a>
-        <a href="#" class="nav-item" data-tab="search">
-          <i class="fa-solid fa-magnifying-glass"></i>
-          <span>Search</span>
-        </a>
-        <a href="#" class="nav-item" data-tab="reels">
-          <i class="fa-solid fa-clapperboard"></i>
-          <span>Reels</span>
-        </a>
-        <a href="#" class="nav-item" data-tab="messages">
-          <i class="fa-regular fa-paper-plane"></i>
-          <span>Messages</span>
-        </a>
-        <a href="#" class="nav-item" id="btn-open-create">
-          <i class="fa-regular fa-square-plus"></i>
-          <span>Create Post</span>
-        </a>
-        <a href="#" class="nav-item" data-tab="profile" id="btn-nav-profile">
-          <i class="fa-regular fa-user"></i>
-          <span>Profile</span>
-        </a>
+        <a href="#" class="nav-item active" data-tab="feed"><i class="fa-solid fa-house"></i><span>Home Feed</span></a>
+        <a href="#" class="nav-item" data-tab="search"><i class="fa-solid fa-magnifying-glass"></i><span>Search</span></a>
+        <a href="#" class="nav-item" data-tab="reels"><i class="fa-solid fa-clapperboard"></i><span>Reels</span></a>
+        <a href="#" class="nav-item" data-tab="messages"><i class="fa-regular fa-paper-plane"></i><span>Messages</span></a>
+        <a href="#" class="nav-item" data-tab="notifications"><i class="fa-regular fa-bell"></i><span>Notifications</span></a>
+        <a href="#" class="nav-item" id="btn-open-create"><i class="fa-regular fa-square-plus"></i><span>Create Post</span></a>
+        <a href="#" class="nav-item" data-tab="profile" id="btn-nav-profile"><i class="fa-regular fa-user"></i><span>Profile</span></a>
       </nav>
       <div class="sidebar-footer">
-        <a href="#" class="nav-item" id="btn-logout">
-          <i class="fa-solid fa-arrow-right-from-bracket"></i>
-          <span>Log Out</span>
-        </a>
+        <a href="#" class="nav-item" id="btn-logout"><i class="fa-solid fa-arrow-right-from-bracket"></i><span>Log Out</span></a>
       </div>
     </aside>
 
-    <!-- Main Content Area -->
     <main class="content-area">
-      <!-- 1. FEED TAB VIEW -->
+      <!-- FEED -->
       <section id="tab-feed" class="tab-view active">
-        <!-- Stories Slider Tray -->
         <div class="stories-wrapper">
           <div class="stories-container" id="stories-tray">
-            <!-- Story items loaded dynamically -->
             <div class="story-item create-story-btn" id="btn-create-story">
-              <div class="story-ring-add">
-                <i class="fa-solid fa-plus"></i>
-              </div>
+              <div class="story-ring-add"><i class="fa-solid fa-plus"></i></div>
               <span class="story-username">Your Story</span>
             </div>
           </div>
         </div>
-
-        <!-- Scrollable Feed Posts -->
-        <div class="feed-posts" id="feed-posts">
-          <!-- Posts loaded dynamically -->
-        </div>
+        <div class="feed-posts" id="feed-posts"></div>
       </section>
 
-      <!-- SEARCH TAB VIEW -->
+      <!-- SEARCH -->
       <section id="tab-search" class="tab-view hidden">
         <div class="search-container">
           <div class="search-bar-wrapper">
@@ -142,71 +78,47 @@
             <button id="btn-clear-search" class="hidden"><i class="fa-solid fa-circle-xmark"></i></button>
           </div>
           <div class="search-results-wrapper hidden" id="search-results-box">
-            <div class="search-category-section">
-              <h3 class="category-header">Profiles</h3>
-              <div class="results-list" id="search-results-profiles"></div>
-            </div>
-            <div class="search-category-section">
-              <h3 class="category-header">Hashtags</h3>
-              <div class="results-list flex-wrap" id="search-results-hashtags"></div>
-            </div>
-            <div class="search-category-section">
-              <h3 class="category-header">Posts</h3>
-              <div class="results-grid" id="search-results-posts"></div>
-            </div>
-            <div class="search-category-section">
-              <h3 class="category-header">Reels</h3>
-              <div class="results-grid" id="search-results-reels"></div>
-            </div>
+            <div class="search-category-section"><h3 class="category-header">Profiles</h3><div class="results-list" id="search-results-profiles"></div></div>
+            <div class="search-category-section"><h3 class="category-header">Hashtags</h3><div class="results-list flex-wrap" id="search-results-hashtags"></div></div>
+            <div class="search-category-section"><h3 class="category-header">Posts</h3><div class="results-grid" id="search-results-posts"></div></div>
+            <div class="search-category-section"><h3 class="category-header">Reels</h3><div class="results-grid" id="search-results-reels"></div></div>
           </div>
           <div class="search-explore-wrapper" id="search-explore-box">
-            <h3 class="explore-header">Explore Reels & Posts</h3>
+            <h3 class="explore-header">Explore Reels &amp; Posts</h3>
             <div class="explore-grid" id="explore-grid"></div>
           </div>
         </div>
       </section>
 
-      <!-- REELS TAB VIEW -->
+      <!-- REELS -->
       <section id="tab-reels" class="tab-view hidden">
         <div class="reels-viewport-container">
-          <div class="reels-list-wrapper" id="reels-list-container">
-            <!-- Reels will load dynamically here -->
-          </div>
+          <div class="reels-list-wrapper" id="reels-list-container"></div>
         </div>
       </section>
 
-      <!-- 2. MESSAGES TAB VIEW -->
+      <!-- MESSAGES -->
       <section id="tab-messages" class="tab-view hidden">
         <div class="chat-container">
-          <!-- Conversations Sidebar List -->
           <div class="conversations-list">
             <div class="conv-header">
               <h2>Direct Chats</h2>
-              <div class="conv-header-actions" style="display: flex; gap: 12px; align-items: center;">
-                <button id="btn-new-chat" title="Start New Conversation" style="background: none; border: none; color: #fff; cursor: pointer; font-size: 1.15rem; padding: 4px; transition: var(--transition-smooth);"><i class="fa-regular fa-envelope"></i></button>
-                <button id="btn-new-group" title="Start New Group Chat" style="background: none; border: none; color: #fff; cursor: pointer; font-size: 1.15rem; padding: 4px; transition: var(--transition-smooth);"><i class="fa-solid fa-users"></i></button>
+              <div class="conv-header-actions">
+                <button id="btn-new-chat" title="New Direct Message"><i class="fa-regular fa-envelope"></i></button>
+                <button id="btn-new-group" title="New Group Chat"><i class="fa-solid fa-users"></i></button>
               </div>
             </div>
-            <div class="conv-items" id="conv-items">
-              <!-- Conversation threads loaded dynamically -->
-            </div>
+            <div class="conv-items" id="conv-items"></div>
           </div>
 
-          <!-- Active Conversation Message Window -->
           <div class="chat-window empty" id="chat-window">
-            <!-- Empty state: centred when no chat is open -->
             <div class="chat-empty-state">
-              <div class="empty-icon-circle">
-                <i class="fa-regular fa-paper-plane"></i>
-              </div>
+              <div class="empty-icon-circle"><i class="fa-regular fa-paper-plane"></i></div>
               <h3>Your messages</h3>
               <p>Send a message to start a chat.</p>
               <button class="btn-send-msg-empty" id="btn-chat-empty-start">Send message</button>
             </div>
-
-            <!-- Active chat pane: shown when a conversation is selected -->
             <div class="chat-active-state hidden">
-              <!-- Chat Room Header -->
               <div class="chat-room-header">
                 <div class="chat-partner-clickable" id="chat-partner-profile-link">
                   <div class="partner-avatar" id="chat-partner-avatar">U</div>
@@ -216,48 +128,56 @@
                   </div>
                 </div>
                 <div class="chat-header-actions">
-                  <button id="btn-chat-view-profile" title="View Profile">
-                    <i class="fa-solid fa-circle-info"></i>
-                  </button>
+                  <button id="btn-chat-view-profile" title="Info"><i class="fa-solid fa-circle-info"></i></button>
                 </div>
               </div>
-
-              <!-- Message History Scroll list -->
-              <div class="chat-messages" id="chat-messages-container">
-                <!-- Messages loaded dynamically -->
-              </div>
-
-              <!-- Chat Input Form -->
+              <div class="chat-messages" id="chat-messages-container"></div>
               <form id="chat-input-form" class="chat-input-area">
                 <input type="text" id="chat-message-text" placeholder="Message..." required autocomplete="off">
                 <button type="submit" class="btn-send"><i class="fa-solid fa-arrow-up"></i></button>
               </form>
             </div>
           </div>
+
+          <!-- Group info side panel (hidden by default) -->
+          <div class="group-info-panel hidden" id="group-info-panel">
+            <div class="group-info-header">
+              <span>Members</span>
+              <button id="btn-close-group-info"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="group-members-list" id="group-members-list"></div>
+          </div>
+      </section>
+
+      <!-- NOTIFICATIONS -->
+      <section id="tab-notifications" class="tab-view hidden">
+        <div class="notifications-container">
+          <h2 class="notifications-header">Notifications</h2>
+          <div id="notifications-list" class="notifications-list">
+            <!-- Loaded dynamically -->
+          </div>
         </div>
       </section>
 
-      <!-- 3. PROFILE TAB VIEW -->
+      <!-- PROFILE -->
       <section id="tab-profile" class="tab-view hidden">
         <div class="profile-container">
           <div class="profile-header-card">
             <div class="profile-avatar-container-large" id="profile-avatar-wrapper" title="Change Profile Details">
               <div class="profile-avatar-large" id="profile-page-avatar">U</div>
-              <div class="profile-avatar-hover-overlay">
-                <i class="fa-solid fa-pencil"></i>
-              </div>
+              <div class="profile-avatar-hover-overlay"><i class="fa-solid fa-pencil"></i></div>
             </div>
             <div class="profile-info-details">
               <div class="profile-username-row">
                 <h2 id="profile-page-username">@username</h2>
                 <button class="btn btn-edit-profile" id="profile-btn-edit">Edit Profile</button>
                 <button class="btn btn-follow-user hidden" id="profile-btn-follow">Follow</button>
-                <button class="btn btn-message-user hidden" id="profile-btn-message" style="margin-left: 8px;">Message</button>
+                <button class="btn btn-message-user hidden" id="profile-btn-message" style="margin-left:8px;">Message</button>
               </div>
               <div class="profile-stats-row">
                 <span class="profile-stat-item"><strong id="profile-posts-count">0</strong> posts</span>
-                <span class="profile-stat-item"><a href="#" class="profile-stat-link" id="link-show-followers" style="color:inherit; text-decoration:none;"><strong id="profile-followers-count">0</strong> followers</a></span>
-                <span class="profile-stat-item"><a href="#" class="profile-stat-link" id="link-show-following" style="color:inherit; text-decoration:none;"><strong id="profile-following-count">0</strong> following</a></span>
+                <span class="profile-stat-item"><a href="#" class="profile-stat-link" id="link-show-followers" style="color:inherit;text-decoration:none;"><strong id="profile-followers-count">0</strong> followers</a></span>
+                <span class="profile-stat-item"><a href="#" class="profile-stat-link" id="link-show-following" style="color:inherit;text-decoration:none;"><strong id="profile-following-count">0</strong> following</a></span>
               </div>
               <div class="profile-bio-row">
                 <h4 id="profile-page-fullname">Full Name</h4>
@@ -266,113 +186,88 @@
               </div>
             </div>
           </div>
-
-          <!-- Profile View Tabs (Posts vs Reels) -->
           <div class="profile-tabs-header">
-            <button class="profile-tab-btn active" id="btn-profile-posts">
-              <i class="fa-solid fa-table-cells"></i> POSTS
-            </button>
-            <button class="profile-tab-btn" id="btn-profile-reels">
-              <i class="fa-solid fa-clapperboard"></i> REELS
-            </button>
+            <button class="profile-tab-btn active" id="btn-profile-posts"><i class="fa-solid fa-table-cells"></i> POSTS</button>
+            <button class="profile-tab-btn" id="btn-profile-reels"><i class="fa-solid fa-clapperboard"></i> REELS</button>
           </div>
-          <div class="profile-posts-grid" id="profile-posts-grid">
-            <!-- Grid post boxes loaded dynamically -->
-          </div>
-          <div class="profile-posts-grid hidden" id="profile-reels-grid">
-            <!-- Grid reel boxes loaded dynamically -->
-          </div>
+          <div class="profile-posts-grid" id="profile-posts-grid"></div>
+          <div class="profile-posts-grid hidden" id="profile-reels-grid"></div>
         </div>
       </section>
     </main>
   </div>
 
-  <!-- ========================================== -->
-  <!-- DIALOG / MODAL POPUPS -->
-  <!-- ========================================== -->
+  <!-- ===== MODALS ===== -->
 
-  <!-- A. Create Post/Reel Modal -->
+  <!-- A. Create Post/Reel - Instagram-style drag & drop -->
   <div id="modal-create" class="modal-overlay hidden">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h3>Create New Post or Reel</h3>
+    <div class="create-modal-card">
+      <div class="create-modal-topbar">
+        <span id="create-modal-title">Create new post</span>
         <button class="btn-close" id="btn-close-create"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <form id="create-post-form">
-        <div class="modal-body">
-          <div class="input-group-vertical">
-            <label for="create-type">Content Type</label>
-            <select id="create-type">
+      <div class="create-modal-body">
+        <!-- Step 1: drop zone -->
+        <div class="create-drop-zone" id="create-drop-zone">
+          <div class="create-drop-zone-inner">
+            <div class="drop-icon-stack">
+              <i class="fa-regular fa-image drop-icon-back"></i>
+              <i class="fa-regular fa-circle-play drop-icon-front"></i>
+            </div>
+            <p class="drop-main-text">Drag photos and videos here</p>
+            <label class="drop-select-btn" for="create-file">Select from computer</label>
+            <input type="file" id="create-file" accept="image/*,video/*" style="display:none">
+          </div>
+        </div>
+        <!-- Step 2: preview + meta (hidden until file picked) -->
+        <div class="create-preview-pane hidden" id="create-preview-pane">
+          <div class="create-preview-media" id="create-preview-media"></div>
+          <div class="create-meta-pane">
+            <select id="create-type" class="create-meta-select">
               <option value="post">Feed Post</option>
               <option value="reel">Reel Video</option>
             </select>
-          </div>
-          <div class="input-group-vertical">
-            <label for="create-file">Upload Image or Video</label>
-            <input type="file" id="create-file" accept="image/*,video/*" required>
-          </div>
-          <div class="input-group-vertical">
-            <label for="create-caption">Caption</label>
-            <textarea id="create-caption" rows="3" placeholder="Write a caption..."></textarea>
-          </div>
-          <div class="input-group-vertical" id="grp-location">
-            <label for="create-location">Location</label>
-            <input type="text" id="create-location" placeholder="e.g. San Francisco, CA">
-          </div>
-          <div class="input-group-vertical" id="grp-duration" class="hidden" style="display:none;">
-            <label for="create-duration">Video Duration (seconds)</label>
-            <input type="number" id="create-duration" value="15" min="1" max="90">
+            <textarea id="create-caption" rows="4" placeholder="Write a caption..."></textarea>
+            <input type="text" id="create-location" placeholder="Add location...">
+            <div id="grp-duration" style="display:none">
+              <input type="number" id="create-duration" value="15" min="1" max="90" placeholder="Duration (seconds)">
+            </div>
+            <button class="btn btn-primary create-share-btn" id="btn-create-share">Share</button>
           </div>
         </div>
-        <div class="modal-footer">
-          <button type="submit" class="btn btn-primary">Share</button>
-        </div>
-      </form>
+      </div>
     </div>
   </div>
 
-  <!-- B. Profile Settings Modal -->
+  <!-- B. Profile Settings -->
   <div id="modal-profile" class="modal-overlay hidden">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h3>Edit Profile Settings</h3>
+    <div class="create-modal-card" style="max-width:520px;">
+      <div class="create-modal-topbar">
+        <span>Edit Profile</span>
         <button class="btn-close" id="btn-close-profile"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <form id="edit-profile-form">
         <div class="modal-body">
-          <div class="input-group-vertical">
-            <label for="edit-profile-picture-file">Profile Picture</label>
-            <input type="file" id="edit-profile-picture-file" accept="image/*">
+          <!-- Avatar drag-drop -->
+          <div class="avatar-upload-zone" id="avatar-drop-zone">
+            <div class="avatar-upload-preview" id="avatar-upload-preview">
+              <i class="fa-solid fa-camera"></i>
+              <span>Change photo</span>
+            </div>
+            <input type="file" id="edit-profile-picture-file" accept="image/*" style="display:none">
           </div>
-          <div class="input-group-vertical">
-            <label for="edit-fullname">Full Name</label>
-            <input type="text" id="edit-fullname" placeholder="Display Name">
-          </div>
-          <div class="input-group-vertical">
-            <label for="edit-username">Username</label>
-            <input type="text" id="edit-username" placeholder="Username">
-          </div>
-          <div class="input-group-vertical">
-            <label for="edit-bio">Bio</label>
-            <textarea id="edit-bio" rows="3" placeholder="Tell us about yourself..."></textarea>
-          </div>
-          <div class="input-group-vertical">
-            <label for="edit-website">Website Link</label>
-            <input type="url" id="edit-website" placeholder="e.g. https://mywebsite.com">
-          </div>
-          <div class="input-group-vertical">
-            <label for="edit-phone">Phone Number</label>
-            <input type="text" id="edit-phone" placeholder="Phone Contact">
-          </div>
+          <div class="input-group-vertical"><label>Full Name</label><input type="text" id="edit-fullname" placeholder="Display Name"></div>
+          <div class="input-group-vertical"><label>Username</label><input type="text" id="edit-username" placeholder="Username"></div>
+          <div class="input-group-vertical"><label>Bio</label><textarea id="edit-bio" rows="3" placeholder="Tell us about yourself..."></textarea></div>
+          <div class="input-group-vertical"><label>Website</label><input type="url" id="edit-website" placeholder="https://mywebsite.com"></div>
+          <div class="input-group-vertical"><label>Phone</label><input type="text" id="edit-phone" placeholder="Phone Contact"></div>
         </div>
-        <div class="modal-footer">
-          <button type="submit" class="btn btn-primary">Save Changes</button>
-        </div>
+        <div class="modal-footer"><button type="submit" class="btn btn-primary">Save Changes</button></div>
       </form>
     </div>
   </div>
 
-  <!-- C. Story Viewer Modal -->
+  <!-- C. Story Viewer -->
   <div id="modal-story-viewer" class="modal-overlay hidden">
     <div class="story-viewer-card">
       <div class="story-viewer-header">
@@ -383,105 +278,75 @@
         </div>
         <button class="btn-close-story" id="btn-close-story-viewer"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      
-      <!-- Progress Indicator -->
-      <div class="story-progress-bar">
-        <div class="story-progress-fill" id="story-progress-fill"></div>
-      </div>
-
-      <!-- Story Media Container -->
+      <div class="story-progress-bar"><div class="story-progress-fill" id="story-progress-fill"></div></div>
       <div class="story-media-box">
         <div class="story-graphic-box">
-          <i class="fa-solid fa-image"></i>
-          <p>Instagram Story</p>
+          <i class="fa-solid fa-image"></i><p>Instagram Story</p>
           <span class="story-expires-indicator">Expires in <span id="story-expires-timer">24 hours</span></span>
         </div>
       </div>
-
-      <!-- Story footer seen views logs -->
-      <div class="story-viewer-views" id="story-views-section">
-        <i class="fa-regular fa-eye"></i> Viewed
-      </div>
+      <div class="story-viewer-views" id="story-views-section"><i class="fa-regular fa-eye"></i> Viewed</div>
     </div>
   </div>
 
-  <!-- D. New Chat Creation Modal -->
+  <!-- D. New DM -->
   <div id="modal-new-chat" class="modal-overlay hidden">
     <div class="modal-card">
-      <div class="modal-header">
-        <h3>New Direct Message</h3>
-        <button class="btn-close" id="btn-close-new-chat"><i class="fa-solid fa-xmark"></i></button>
-      </div>
+      <div class="modal-header"><h3>New Direct Message</h3><button class="btn-close" id="btn-close-new-chat"><i class="fa-solid fa-xmark"></i></button></div>
       <form id="new-chat-form">
         <div class="modal-body">
-          <div class="input-group-vertical">
-            <label for="new-chat-recipient">Recipient Username</label>
-            <input type="text" id="new-chat-recipient" placeholder="Type their username..." required autocomplete="off">
-          </div>
+          <div class="input-group-vertical"><label>Recipient Username</label><input type="text" id="new-chat-recipient" placeholder="Type their username..." required autocomplete="off"></div>
         </div>
-        <div class="modal-footer">
-          <button type="submit" class="btn btn-primary">Start Chat</button>
-        </div>
+        <div class="modal-footer"><button type="submit" class="btn btn-primary">Start Chat</button></div>
       </form>
     </div>
   </div>
 
-  <!-- D2. New Group Chat Creation Modal -->
+  <!-- D2. New Group -->
   <div id="modal-new-group" class="modal-overlay hidden">
     <div class="modal-card">
-      <div class="modal-header">
-        <h3>New Group Chat</h3>
-        <button class="btn-close" id="btn-close-new-group"><i class="fa-solid fa-xmark"></i></button>
-      </div>
+      <div class="modal-header"><h3>New Group Chat</h3><button class="btn-close" id="btn-close-new-group"><i class="fa-solid fa-xmark"></i></button></div>
       <form id="new-group-form">
         <div class="modal-body">
-          <div class="input-group-vertical" style="margin-bottom: 15px; display: flex; flex-direction: column; gap: 6px;">
-            <label for="new-group-name" style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);">Group Name</label>
-            <input type="text" id="new-group-name" placeholder="Type group name..." required autocomplete="off" style="padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 8px; color: #fff;">
-          </div>
-          <div class="input-group-vertical" style="display: flex; flex-direction: column; gap: 6px;">
-            <label for="new-group-members" style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);">Members (comma-separated usernames)</label>
-            <input type="text" id="new-group-members" placeholder="e.g. foodie_heaven, gamer_zone" required autocomplete="off" style="padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 8px; color: #fff;">
-          </div>
+          <div class="input-group-vertical"><label>Group Name</label><input type="text" id="new-group-name" placeholder="Group name..." required autocomplete="off"></div>
+          <div class="input-group-vertical"><label>Members (comma-separated usernames)</label><input type="text" id="new-group-members" placeholder="e.g. alice, bob" required autocomplete="off"></div>
         </div>
-        <div class="modal-footer" style="padding-top: 15px; display: flex; justify-content: flex-end;">
-          <button type="submit" class="btn btn-primary">Create Group</button>
-        </div>
+        <div class="modal-footer"><button type="submit" class="btn btn-primary">Create Group</button></div>
       </form>
     </div>
   </div>
 
-  <!-- E. Relations List Modal (Followers / Following) -->
+  <!-- E. Followers / Following -->
   <div id="modal-relations" class="modal-overlay hidden">
     <div class="modal-card">
-      <div class="modal-header">
-        <h3 id="relations-modal-title">Followers</h3>
-        <button class="btn-close" id="btn-close-relations"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-      <div class="modal-body" id="relations-modal-body" style="max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px;">
-        <!-- List items loaded dynamically -->
-      </div>
+      <div class="modal-header"><h3 id="relations-modal-title">Followers</h3><button class="btn-close" id="btn-close-relations"><i class="fa-solid fa-xmark"></i></button></div>
+      <div class="modal-body" id="relations-modal-body" style="max-height:400px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;"></div>
     </div>
   </div>
 
-  <!-- F. Reel Comments Modal -->
+  <!-- F. Reel Comments -->
   <div id="modal-reel-comments" class="modal-overlay hidden">
     <div class="modal-card comment-modal-card">
-      <div class="modal-header">
-        <h3>Comments</h3>
-        <button class="btn-close" id="btn-close-reel-comments"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-      <div class="modal-body" id="reel-comments-list" style="max-height: 350px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px;">
-        <!-- Reel comments loaded dynamically -->
-      </div>
-      <form id="reel-comment-form" class="modal-footer" style="padding: 10px; border-top: 1px solid var(--glass-border); display: flex; gap: 8px;">
-        <input type="text" id="reel-comment-input" placeholder="Add a comment..." required autocomplete="off" style="flex: 1; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 20px; color: #fff;">
-        <button type="submit" class="btn btn-primary" style="padding: 10px 16px; border-radius: 20px; font-size: 0.9rem;">Post</button>
+      <div class="modal-header"><h3>Comments</h3><button class="btn-close" id="btn-close-reel-comments"><i class="fa-solid fa-xmark"></i></button></div>
+      <div class="modal-body" id="reel-comments-list" style="max-height:350px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;"></div>
+      <form id="reel-comment-form" class="modal-footer" style="padding:10px;border-top:1px solid var(--border-color);display:flex;gap:8px;">
+        <input type="text" id="reel-comment-input" placeholder="Add a comment..." required autocomplete="off" style="flex:1;padding:10px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);border-radius:20px;color:#fff;">
+        <button type="submit" class="btn btn-primary" style="padding:10px 16px;border-radius:20px;font-size:0.9rem;">Post</button>
       </form>
     </div>
   </div>
 
-  <!-- Client JavaScript -->
-  <script src="/static/app.js?v=6"></script>
+  <!-- G. Share post/reel -->
+  <div id="modal-share" class="modal-overlay hidden">
+    <div class="modal-card" style="max-width:400px;">
+      <div class="modal-header"><h3>Share to</h3><button class="btn-close" id="btn-close-share"><i class="fa-solid fa-xmark"></i></button></div>
+      <div class="modal-body">
+        <div class="input-group-vertical"><label>Recipient username</label><input type="text" id="share-recipient" placeholder="Username..." autocomplete="off"></div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-primary" id="btn-confirm-share">Send</button></div>
+    </div>
+  </div>
+
+  <script src="/static/app.js?v=7"></script>
 </body>
 </html>

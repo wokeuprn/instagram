@@ -553,12 +553,35 @@ def create_comment(
 @app.get("/api/posts/{post_id}/comments", response_model=List[schemas.CommentResponse])
 def get_post_comments(post_id: int, db: Session = Depends(get_db)):
     """
-    Lists comments on a post.
+    Lists top-level comments on a post, each including their replies.
     """
     post = crud_content.get_post_by_id(db, post_id)
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
-    return crud_content.get_post_comments(db, post_id)
+    # Only top-level comments (no parent)
+    top_comments = db.query(models.PostComment).filter(
+        models.PostComment.post_id == post_id,
+        models.PostComment.parent_comment_id == None  # noqa
+    ).order_by(models.PostComment.created_at).all()
+
+    def build_comment(c):
+        p = db.query(models.Profile).filter(models.Profile.profile_id == c.profile_id).first()
+        child_replies = db.query(models.PostComment).filter(
+            models.PostComment.parent_comment_id == c.comment_id
+        ).order_by(models.PostComment.created_at).all()
+        return schemas.CommentResponse(
+            comment_id=c.comment_id,
+            post_id=c.post_id,
+            profile_id=c.profile_id,
+            parent_comment_id=c.parent_comment_id,
+            comment_text=c.comment_text,
+            username=p.username if p else "unknown",
+            profile_picture=p.profile_picture if p else None,
+            created_at=c.created_at,
+            replies=[build_comment(r) for r in child_replies]
+        )
+
+    return [build_comment(c) for c in top_comments]
 
 
 @app.post("/api/reels", response_model=schemas.ReelResponse, status_code=status.HTTP_201_CREATED)
@@ -797,6 +820,17 @@ def list_messages(
         sender_profile = db.query(models.Profile).filter(models.Profile.profile_id == msg.sender_id).first()
         sender_username = sender_profile.username if sender_profile else "unknown"
         sender_avatar = sender_profile.profile_picture if sender_profile else None
+
+        # Build list of usernames who have seen this message (excluding sender)
+        seen_by_usernames = []
+        for seen_record in msg.seen_by:
+            if seen_record.profile_id != msg.sender_id:
+                seen_profile = db.query(models.Profile).filter(
+                    models.Profile.profile_id == seen_record.profile_id
+                ).first()
+                if seen_profile:
+                    seen_by_usernames.append(seen_profile.username)
+
         response.append(schemas.MessageResponse(
             message_id=msg.message_id,
             conversation_id=msg.conversation_id,
@@ -805,7 +839,8 @@ def list_messages(
             content=msg.content,
             sent_at=msg.sent_at,
             sender_username=sender_username,
-            sender_avatar=sender_avatar
+            sender_avatar=sender_avatar,
+            seen_by_usernames=seen_by_usernames if seen_by_usernames else None
         ))
     return response
 
@@ -857,6 +892,167 @@ def react_to_message(
 
 
 # ---------------------------------------------------------------------------
+# Group Chat Members
+# ---------------------------------------------------------------------------
+
+@app.get("/api/conversations/{conv_id}/members")
+def get_group_members(
+    conv_id: int,
+    profile: models.Profile = Depends(get_current_profile),
+    db: Session = Depends(get_db)
+):
+    """
+    Returns all members of a conversation with their profile info and follow status.
+    """
+    is_member = db.query(models.ConversationMember).filter(
+        models.ConversationMember.conversation_id == conv_id,
+        models.ConversationMember.profile_id == profile.profile_id
+    ).first()
+    if not is_member:
+        raise HTTPException(status_code=403, detail="You are not a member of this conversation")
+
+    members = db.query(models.ConversationMember).filter(
+        models.ConversationMember.conversation_id == conv_id
+    ).all()
+
+    result = []
+    for m in members:
+        mp = db.query(models.Profile).filter(models.Profile.profile_id == m.profile_id).first()
+        if not mp:
+            continue
+        is_following = db.query(models.Follow).filter(
+            models.Follow.follower_id == profile.profile_id,
+            models.Follow.following_id == mp.profile_id
+        ).first() is not None
+        result.append({
+            "profile_id": mp.profile_id,
+            "username": mp.username,
+            "full_name": mp.full_name,
+            "profile_picture": mp.profile_picture,
+            "is_self": mp.profile_id == profile.profile_id,
+            "is_following": is_following
+        })
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Post & Reel Sharing (send to DM)
+# ---------------------------------------------------------------------------
+
+@app.post("/api/posts/{post_id}/share", status_code=status.HTTP_201_CREATED)
+def share_post(
+    post_id: int,
+    recipient_username: str = Query(...),
+    profile: models.Profile = Depends(get_current_profile),
+    db: Session = Depends(get_db)
+):
+    """Share a post to a direct message conversation."""
+    post = db.query(models.Post).filter(models.Post.post_id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    recipient = crud_sql.get_profile_by_username(db, recipient_username)
+    if not recipient:
+        raise HTTPException(status_code=404, detail="Recipient not found")
+    conv = crud_messaging.get_or_create_direct_conversation(db, profile.profile_id, recipient.profile_id)
+    content = f"[post:{post_id}] {post.media_url or ''}"
+    msg_request = schemas.MessageCreateRequest(content=content, message_type="post_share")
+    crud_messaging.send_message(db, conv.conversation_id, profile.profile_id, msg_request)
+    return {"message": "Post shared successfully", "conversation_id": conv.conversation_id}
+
+
+@app.post("/api/reels/{reel_id}/share", status_code=status.HTTP_201_CREATED)
+def share_reel(
+    reel_id: int,
+    recipient_username: str = Query(...),
+    profile: models.Profile = Depends(get_current_profile),
+    db: Session = Depends(get_db)
+):
+    """Share a reel to a direct message conversation."""
+    reel = db.query(models.Reel).filter(models.Reel.reel_id == reel_id).first()
+    if not reel:
+        raise HTTPException(status_code=404, detail="Reel not found")
+    recipient = crud_sql.get_profile_by_username(db, recipient_username)
+    if not recipient:
+        raise HTTPException(status_code=404, detail="Recipient not found")
+    conv = crud_messaging.get_or_create_direct_conversation(db, profile.profile_id, recipient.profile_id)
+    content = f"[reel:{reel_id}] {reel.caption or ''}"
+    msg_request = schemas.MessageCreateRequest(content=content, message_type="reel_share")
+    crud_messaging.send_message(db, conv.conversation_id, profile.profile_id, msg_request)
+    return {"message": "Reel shared successfully", "conversation_id": conv.conversation_id}
+
+
+# ---------------------------------------------------------------------------
+# Nested Comment Replies
+# ---------------------------------------------------------------------------
+
+@app.post("/api/posts/{post_id}/comments/{comment_id}/replies", status_code=status.HTTP_201_CREATED)
+def reply_to_comment(
+    post_id: int,
+    comment_id: int,
+    request: schemas.CommentCreateRequest,
+    profile: models.Profile = Depends(get_current_profile),
+    db: Session = Depends(get_db)
+):
+    """Reply to an existing comment (nested comment)."""
+    parent = db.query(models.PostComment).filter(
+        models.PostComment.comment_id == comment_id,
+        models.PostComment.post_id == post_id
+    ).first()
+    if not parent:
+        raise HTTPException(status_code=404, detail="Parent comment not found")
+    from crud.crud_content import generate_random_id
+    reply = models.PostComment(
+        comment_id=generate_random_id(),
+        post_id=post_id,
+        profile_id=profile.profile_id,
+        parent_comment_id=comment_id,
+        comment_text=request.comment_text,
+        created_at=__import__("datetime").datetime.utcnow()
+    )
+    db.add(reply)
+    db.commit()
+    db.refresh(reply)
+    return schemas.CommentResponse(
+        comment_id=reply.comment_id,
+        post_id=reply.post_id,
+        profile_id=reply.profile_id,
+        parent_comment_id=reply.parent_comment_id,
+        comment_text=reply.comment_text,
+        username=profile.username,
+        profile_picture=profile.profile_picture,
+        created_at=reply.created_at,
+        replies=[]
+    )
+
+
+@app.get("/api/posts/{post_id}/comments/{comment_id}/replies")
+def get_comment_replies(
+    post_id: int,
+    comment_id: int,
+    db: Session = Depends(get_db)
+):
+    """Get all replies for a specific comment."""
+    replies = db.query(models.PostComment).filter(
+        models.PostComment.parent_comment_id == comment_id
+    ).order_by(models.PostComment.created_at).all()
+    result = []
+    for r in replies:
+        p = db.query(models.Profile).filter(models.Profile.profile_id == r.profile_id).first()
+        result.append(schemas.CommentResponse(
+            comment_id=r.comment_id,
+            post_id=r.post_id,
+            profile_id=r.profile_id,
+            parent_comment_id=r.parent_comment_id,
+            comment_text=r.comment_text,
+            username=p.username if p else "unknown",
+            profile_picture=p.profile_picture if p else None,
+            created_at=r.created_at,
+            replies=[]
+        ))
+    return result
+
+
+# ---------------------------------------------------------------------------
 # File Upload, Search, Notifications, and Real-time WebSockets
 # ---------------------------------------------------------------------------
 
@@ -889,8 +1085,39 @@ def list_notifications(
     """
     Retrieves the user's notifications.
     """
-    from crud import crud_notifications
-    return crud_notifications.get_notifications(db, profile.profile_id)
+    from crud import crud_notifications, crud_sql
+    notifications = crud_notifications.get_notifications(db, profile.profile_id)
+    res = []
+    for n in notifications:
+        actor = crud_sql.get_profile_by_id(db, n.user_id)
+        actor_username = actor.username if actor else f"user_{n.user_id}"
+        actor_avatar = actor.profile_picture if actor else None
+        
+        content = "New notification received"
+        if n.notification_type == "follow":
+            content = f"@{actor_username} started following you."
+        elif n.notification_type == "follow_accept":
+            content = f"@{actor_username} accepted your follow request."
+        elif n.notification_type == "like":
+            content = f"@{actor_username} liked your post."
+        elif n.notification_type == "comment":
+            content = f"@{actor_username} commented on your post."
+        elif n.notification_type == "message":
+            content = f"got 1 message from {actor_username}"
+        
+        res.append(schemas.NotificationResponse(
+            notification_id=str(n.notification_id),
+            receiver_id=str(n.receiver_id),
+            user_id=str(n.user_id),
+            notification_type=n.notification_type,
+            reference_id=str(n.reference_id),
+            is_read=n.is_read,
+            actor_username=actor_username,
+            actor_avatar=actor_avatar,
+            content=content
+        ))
+    return res
+
 
 
 @app.put("/api/notifications/{noti_id}/read")

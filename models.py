@@ -341,6 +341,7 @@ class Conversation(Base):
     conversation_type = sqlalchemy.Column(sqlalchemy.String)
     created_at = sqlalchemy.Column(sqlalchemy.DateTime)
     name = sqlalchemy.Column(sqlalchemy.String, nullable=True)
+    last_message_at = sqlalchemy.Column(sqlalchemy.DateTime, default=sqlalchemy.func.now())
 
     members = relationship("ConversationMember", back_populates="conversation")
     messages = relationship("Message", back_populates="conversation")

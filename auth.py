@@ -40,4 +40,4 @@ def generate_token_id() -> int:
     Generates a secure random 63-bit positive integer
     suitable for use as a primary key in PostgreSQL BigInt (access_token_id).
     """
-    return secrets.randbits(63)
+    return secrets.randbits(52)

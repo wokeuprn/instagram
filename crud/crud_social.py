@@ -1,5 +1,11 @@
+import os
+import sys
 from datetime import datetime
 from typing import List, Optional
+
+# Add project root to sys.path to allow direct execution
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 # pyrefly: ignore [missing-import]
 from sqlalchemy.orm import Session
 # pyrefly: ignore [missing-import]
@@ -74,7 +80,7 @@ def create_follow_request(db: Session, sender_id: int, receiver_id: int) -> mode
 
     # Generate random request_id for primary key
     import secrets
-    req_id = secrets.randbits(63)
+    req_id = secrets.randbits(52)
     db_req = models.FollowRequest(
         request_id=req_id,
         sender_id=sender_id,

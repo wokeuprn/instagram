@@ -2,17 +2,18 @@ from datetime import datetime, timedelta
 import secrets
 from typing import List, Optional
 import re
-# pyrefly: ignore [missing-import]
+# pyrefly: ignore[missing-import]
 from sqlalchemy.orm import Session
-# pyrefly: ignore [missing-import]
+# pyrefly: ignore[missing-import]
 from sqlalchemy import desc
 
+# pyrefly: ignore[missing-import]
 from database import models
+# pyrefly: ignore[missing-import]
 import schemas
 
-
 def generate_random_id() -> int:
-    return secrets.randbits(63)
+    return secrets.randbits(52)
 
 
 def process_hashtags(db: Session, target_id: int, text: str, target_type: str):
@@ -24,7 +25,7 @@ def process_hashtags(db: Session, target_id: int, text: str, target_type: str):
         # Find or create hashtag
         tag = db.query(models.Hashtag).filter(models.Hashtag.tag_name == tag_name_lower).first()
         if not tag:
-            tag = models.Hashtag(hashtag_id=secrets.randbits(63), tag_name=tag_name_lower)
+            tag = models.Hashtag(hashtag_id=secrets.randbits(52), tag_name=tag_name_lower)
             db.add(tag)
             db.flush()
         
