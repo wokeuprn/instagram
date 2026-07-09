@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="/static/style.css?v=8">
+  <link rel="stylesheet" href="/static/style.css?v=13">
 </head>
 <body class="dark-mode">
 
@@ -132,6 +132,7 @@
                   </div>
                 </div>
                 <div class="chat-header-actions">
+                  <button id="btn-delete-chat" class="btn-delete-chat" title="Delete Chat"><i class="fa-regular fa-trash-can"></i></button>
                   <button id="btn-chat-view-profile" title="Info"><i class="fa-solid fa-circle-info"></i></button>
                 </div>
               </div>
@@ -163,6 +164,9 @@
               <span>Group Members</span>
             </div>
             <div class="group-members-list" id="group-members-list"></div>
+            <div class="group-info-footer">
+              <button id="btn-delete-group" class="btn-delete-group-action"><i class="fa-regular fa-trash-can"></i> Delete Group</button>
+            </div>
           </div>
       </section>
 
@@ -312,7 +316,11 @@
       <div class="modal-header"><h3>New Direct Message</h3><button class="btn-close" id="btn-close-new-chat"><i class="fa-solid fa-xmark"></i></button></div>
       <form id="new-chat-form">
         <div class="modal-body">
-          <div class="input-group-vertical"><label>Recipient Username</label><input type="text" id="new-chat-recipient" placeholder="Type their username..." required autocomplete="off"></div>
+          <div class="input-group-vertical" style="position: relative;">
+            <label>Recipient Username</label>
+            <input type="text" id="new-chat-recipient" placeholder="Type their username..." required autocomplete="off">
+            <div id="new-chat-search-results" class="add-member-dropdown hidden" style="left: 0; right: 0; top: 100%; margin-top: 4px; max-height: 180px;"></div>
+          </div>
         </div>
         <div class="modal-footer"><button type="submit" class="btn btn-primary">Start Chat</button></div>
       </form>
@@ -325,8 +333,21 @@
       <div class="modal-header"><h3>New Group Chat</h3><button class="btn-close" id="btn-close-new-group"><i class="fa-solid fa-xmark"></i></button></div>
       <form id="new-group-form">
         <div class="modal-body">
-          <div class="input-group-vertical"><label>Group Name</label><input type="text" id="new-group-name" placeholder="Group name..." required autocomplete="off"></div>
-          <div class="input-group-vertical"><label>Members (comma-separated usernames)</label><input type="text" id="new-group-members" placeholder="e.g. alice, bob" required autocomplete="off"></div>
+          <div class="input-group-vertical" style="margin-bottom: 14px;">
+            <label>Group Name</label>
+            <input type="text" id="new-group-name" placeholder="Group name..." required autocomplete="off">
+          </div>
+          <div class="input-group-vertical" style="position: relative; margin-bottom: 14px;">
+            <label>Add Members</label>
+            <input type="text" id="new-group-search-input" placeholder="Search usernames..." autocomplete="off">
+            <div id="new-group-search-results" class="add-member-dropdown hidden" style="left: 0; right: 0; top: 100%; margin-top: 4px; max-height: 180px;"></div>
+          </div>
+          <div class="input-group-vertical">
+            <label>Selected Members</label>
+            <div id="new-group-selected-list" class="selected-members-tags">
+              <span class="no-members-placeholder" style="color: var(--text-muted); font-size: 0.85rem;">No members selected yet.</span>
+            </div>
+          </div>
         </div>
         <div class="modal-footer"><button type="submit" class="btn btn-primary">Create Group</button></div>
       </form>
@@ -337,6 +358,10 @@
   <div id="modal-relations" class="modal-overlay hidden">
     <div class="modal-card">
       <div class="modal-header"><h3 id="relations-modal-title">Followers</h3><button class="btn-close" id="btn-close-relations"><i class="fa-solid fa-xmark"></i></button></div>
+      <div class="relations-search-wrapper">
+        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+        <input type="text" id="relations-search-input" placeholder="Search" autocomplete="off">
+      </div>
       <div class="modal-body" id="relations-modal-body" style="max-height:400px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;"></div>
     </div>
   </div>
@@ -364,6 +389,6 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=8"></script>
+  <script src="/static/app.js?v=13"></script>
 </body>
 </html>

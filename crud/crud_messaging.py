@@ -383,3 +383,60 @@ def add_members_to_group(
 
     return conv
 
+
+def delete_conversation(db: Session, conversation_id: int, current_profile_id: int) -> bool:
+    """
+    Deletes a conversation entirely. Cleans up all messages, reactions, seen entries,
+    members, and the conversation record itself.
+    """
+    conv = db.query(models.Conversation).filter(models.Conversation.conversation_id == conversation_id).first()
+    if not conv:
+        raise ValueError("Conversation not found")
+
+    # Verify membership
+    is_member = db.query(models.ConversationMember).filter(
+        models.ConversationMember.conversation_id == conversation_id,
+        models.ConversationMember.profile_id == current_profile_id
+    ).first()
+    if not is_member:
+        raise ValueError("You are not authorized to delete this conversation")
+
+    # Gather member profiles before deleting relationships
+    member_profile_ids = [m.profile_id for m in conv.members]
+
+    # 1. Fetch message IDs in this conversation
+    messages = db.query(models.Message).filter(models.Message.conversation_id == conversation_id).all()
+    message_ids = [m.message_id for m in messages]
+
+    if message_ids:
+        # 2. Delete message reactions
+        db.query(models.MessageReaction).filter(models.MessageReaction.message_id.in_(message_ids)).delete(synchronize_session=False)
+        # 3. Delete message seen entries
+        db.query(models.MessageSeen).filter(models.MessageSeen.message_id.in_(message_ids)).delete(synchronize_session=False)
+        # 4. Delete messages
+        db.query(models.Message).filter(models.Message.conversation_id == conversation_id).delete(synchronize_session=False)
+
+    # 5. Delete conversation members
+    db.query(models.ConversationMember).filter(models.ConversationMember.conversation_id == conversation_id).delete(synchronize_session=False)
+
+    # 6. Delete conversation
+    db.query(models.Conversation).filter(models.Conversation.conversation_id == conversation_id).delete(synchronize_session=False)
+
+    db.commit()
+
+    # WebSocket notification
+    try:
+        from dependencies import ws_manager
+        payload = {
+            "type": "delete_conversation",
+            "data": {
+                "conversation_id": str(conversation_id)
+            }
+        }
+        for pid in member_profile_ids:
+            ws_manager.send_personal_message_sync(payload, pid)
+    except Exception as err:
+        print(f"Failed to push delete conversation WS event: {err}")
+
+    return True
+

@@ -760,6 +760,25 @@ def add_group_members_endpoint(
     )
 
 
+@app.delete("/api/conversations/{conv_id}")
+def delete_conversation_endpoint(
+    conv_id: int,
+    profile: models.Profile = Depends(get_current_profile),
+    db: Session = Depends(get_db)
+):
+    """
+    Deletes a conversation entirely (members, messages, seen indicators, and reactions).
+    """
+    try:
+        crud_messaging.delete_conversation(db, conv_id, profile.profile_id)
+        return {"status": "success", "detail": "Conversation deleted successfully"}
+    except ValueError as val_err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(val_err)
+        )
+
+
 @app.get("/api/conversations", response_model=List[schemas.ConversationResponse])
 def list_conversations(
     q: Optional[str] = Query(None, description="Search chats by name or member username"),

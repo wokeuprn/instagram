@@ -16,6 +16,8 @@ let state = {
   socket: null
 };
 
+let activeRelationsList = [];
+
 // ==========================================
 // SAFE ID COMPARISON (fixes 2^x large integer / randbits precision bug)
 // JavaScript Numbers lose precision for integers > 2^53. Large DB IDs (e.g.
@@ -178,6 +180,27 @@ function connectWebSocket() {
       } else if (payload.type === "new_conversation") {
         const conv = payload.data;
         showToast(`Added to new group: ${conv.name}`, "info");
+        if (state.activeTab === "messages") {
+          fetchConversations();
+        }
+      } else if (payload.type === "delete_conversation") {
+        const deletedConvId = payload.data.conversation_id;
+        showToast("A conversation was deleted", "info");
+        if (sameId(state.activeConversationId, deletedConvId)) {
+          state.activeConversationId = null;
+          state.activeConversationPartner = null;
+          state.activeConversationIsGroup = false;
+          state.activeConversationGroupName = null;
+          saveState();
+
+          const chatWindow = document.getElementById("chat-window");
+          if (chatWindow) {
+            chatWindow.classList.add("empty");
+            chatWindow.querySelector(".chat-active-state").classList.add("hidden");
+            chatWindow.querySelector(".chat-empty-state").classList.remove("hidden");
+          }
+          document.getElementById("group-info-panel").classList.add("hidden");
+        }
         if (state.activeTab === "messages") {
           fetchConversations();
         }
@@ -579,6 +602,22 @@ function setupEventListeners() {
     document.getElementById("group-info-panel").classList.add("hidden");
   });
 
+  const btnDeleteChat = document.getElementById("btn-delete-chat");
+  if (btnDeleteChat) {
+    btnDeleteChat.addEventListener("click", async (e) => {
+      e.preventDefault();
+      await confirmAndDeleteActiveConversation();
+    });
+  }
+
+  const btnDeleteGroup = document.getElementById("btn-delete-group");
+  if (btnDeleteGroup) {
+    btnDeleteGroup.addEventListener("click", async (e) => {
+      e.preventDefault();
+      await confirmAndDeleteActiveConversation();
+    });
+  }
+
   // Chat search filtering
   const chatSearchInput = document.getElementById("chat-search-input");
   if (chatSearchInput) {
@@ -656,14 +695,23 @@ function setupEventListeners() {
     document.getElementById("modal-relations").classList.add("hidden");
   });
 
+  const relationsSearchInput = document.getElementById("relations-search-input");
+  if (relationsSearchInput) {
+    relationsSearchInput.addEventListener("input", (e) => {
+      renderFilteredRelations(e.target.value);
+    });
+  }
+
   document.getElementById("link-show-followers").addEventListener("click", (e) => {
     e.preventDefault();
-    showRelationsModal("followers");
+    const target = state.viewingUsername || (state.profile && state.profile.username);
+    if (target) showRelationsModal("followers", target);
   });
 
   document.getElementById("link-show-following").addEventListener("click", (e) => {
     e.preventDefault();
-    showRelationsModal("following");
+    const target = state.viewingUsername || (state.profile && state.profile.username);
+    if (target) showRelationsModal("following", target);
   });
 
   // Avatar hover edit click
@@ -758,6 +806,119 @@ function setupEventListeners() {
     closeStoryViewer();
   });
 
+  // Load suggested followers for New DM / Group modals
+  async function loadNewChatSuggestions(resultsElement, onSelectCallback, excludeSet = new Set()) {
+    if (!state.profile) return;
+    try {
+      resultsElement.innerHTML = '<div class="add-member-result-row no-results"><i class="fa-solid fa-spinner fa-spin"></i> Loading suggested...</div>';
+      resultsElement.classList.remove("hidden");
+
+      const list = await apiRequest(`/api/${state.profile.username}/followers`);
+      const filtered = list.filter(u => !excludeSet.has(u.username));
+
+      if (filtered.length === 0) {
+        resultsElement.innerHTML = '<div class="add-member-result-row no-results">No suggested followers found</div>';
+      } else {
+        resultsElement.innerHTML = `
+          <div style="padding: 10px 14px 4px 14px; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Suggested</div>
+        ` + filtered.map(p => `
+          <div class="add-member-result-row" data-username="${p.username}">
+            <div class="add-member-result-avatar" ${p.profile_picture ? 'style="background:none;"' : ''}>
+              ${p.profile_picture ? `<img src="${p.profile_picture}" alt="Avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">` : p.username.substring(0,2).toUpperCase()}
+            </div>
+            <div class="add-member-result-meta">
+              <span class="add-member-result-name">${p.full_name || p.username}</span>
+              <span class="add-member-result-handle">@${p.username}</span>
+            </div>
+            <i class="fa-solid fa-plus add-icon"></i>
+          </div>
+        `).join("");
+
+        resultsElement.querySelectorAll(".add-member-result-row[data-username]").forEach(row => {
+          row.onclick = (e) => {
+            e.stopPropagation();
+            const usernameSelected = row.dataset.username;
+            onSelectCallback(usernameSelected);
+          };
+        });
+      }
+    } catch (err) {
+      resultsElement.innerHTML = '<div class="add-member-result-row no-results" style="color:var(--accent-red);">Failed to load suggestions</div>';
+    }
+  }
+
+  // Autocomplete Search for New DM Modal
+  const newChatInput = document.getElementById("new-chat-recipient");
+  const newChatResults = document.getElementById("new-chat-search-results");
+
+  const onNewChatSelect = async (usernameSelected) => {
+    newChatInput.value = usernameSelected;
+    newChatResults.classList.add("hidden");
+    try {
+      const conv = await apiRequest(`/api/conversations?recipient_username=${usernameSelected}`, "POST");
+      document.getElementById("modal-new-chat").classList.add("hidden");
+      document.getElementById("new-chat-form").reset();
+      await fetchConversations();
+      openChatRoom(conv.conversation_id, usernameSelected);
+    } catch (err) {
+      showToast("Failed to start conversation");
+    }
+  };
+
+  if (newChatInput && newChatResults) {
+    newChatInput.addEventListener("focus", () => {
+      if (!newChatInput.value.trim()) {
+        loadNewChatSuggestions(newChatResults, onNewChatSelect);
+      }
+    });
+
+    newChatInput.addEventListener("input", async (e) => {
+      const val = e.target.value.trim().toLowerCase();
+      if (!val) {
+        loadNewChatSuggestions(newChatResults, onNewChatSelect);
+        return;
+      }
+
+      try {
+        const data = await apiRequest(`/api/search?q=${encodeURIComponent(val)}`);
+        const profiles = data.profiles || [];
+
+        if (profiles.length === 0) {
+          newChatResults.innerHTML = '<div class="add-member-result-row no-results">No matching users found</div>';
+        } else {
+          newChatResults.innerHTML = profiles.map(p => `
+            <div class="add-member-result-row" data-username="${p.username}">
+              <div class="add-member-result-avatar" ${p.profile_picture ? 'style="background:none;"' : ''}>
+                ${p.profile_picture ? `<img src="${p.profile_picture}" alt="Avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">` : p.username.substring(0,2).toUpperCase()}
+              </div>
+              <div class="add-member-result-meta">
+                <span class="add-member-result-name">${p.full_name || p.username}</span>
+                <span class="add-member-result-handle">@${p.username}</span>
+              </div>
+              <i class="fa-regular fa-paper-plane add-icon" style="color: var(--accent-blue);"></i>
+            </div>
+          `).join("");
+
+          newChatResults.querySelectorAll(".add-member-result-row").forEach(row => {
+            row.onclick = () => {
+              const usernameSelected = row.dataset.username;
+              onNewChatSelect(usernameSelected);
+            };
+          });
+        }
+        newChatResults.classList.remove("hidden");
+      } catch (err) {
+        console.error("New chat search error:", err);
+      }
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!newChatInput.contains(e.target) && !newChatResults.contains(e.target)) {
+        newChatResults.classList.add("hidden");
+      }
+    });
+  }
+
   // New Chat Form Submit
   document.getElementById("new-chat-form").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -772,14 +933,145 @@ function setupEventListeners() {
       openChatRoom(conv.conversation_id, username);
     } catch (err) { }
   });
+  // Group Autocomplete Search & Tags Setup
+  const newGroupSearchInput = document.getElementById("new-group-search-input");
+  const newGroupSearchResults = document.getElementById("new-group-search-results");
+  const newGroupSelectedList = document.getElementById("new-group-selected-list");
+  let newGroupSelectedMembers = new Set();
+
+  const onNewGroupSelect = (usernameSelected) => {
+    newGroupSelectedMembers.add(usernameSelected);
+    updateSelectedMembersUI();
+    if (newGroupSearchInput) newGroupSearchInput.value = "";
+    loadNewChatSuggestions(newGroupSearchResults, onNewGroupSelect, newGroupSelectedMembers);
+  };
+
+  function updateSelectedMembersUI() {
+    if (newGroupSelectedMembers.size === 0) {
+      newGroupSelectedList.innerHTML = '<span class="no-members-placeholder" style="color: var(--text-muted); font-size: 0.85rem;">No members selected yet.</span>';
+      return;
+    }
+
+    newGroupSelectedList.innerHTML = Array.from(newGroupSelectedMembers).map(username => `
+      <span class="member-tag" data-username="${username}">
+        <span>@${username}</span>
+        <button type="button" class="btn-remove-tag"><i class="fa-solid fa-xmark"></i></button>
+      </span>
+    `).join("");
+
+    newGroupSelectedList.querySelectorAll(".btn-remove-tag").forEach(btn => {
+      btn.onclick = () => {
+        const usernameToRemove = btn.parentElement.dataset.username;
+        newGroupSelectedMembers.delete(usernameToRemove);
+        updateSelectedMembersUI();
+        if (newGroupSearchInput && !newGroupSearchInput.value.trim()) {
+          loadNewChatSuggestions(newGroupSearchResults, onNewGroupSelect, newGroupSelectedMembers);
+        }
+      };
+    });
+  }
+
+  if (newGroupSearchInput && newGroupSearchResults) {
+    newGroupSearchInput.addEventListener("focus", () => {
+      if (!newGroupSearchInput.value.trim()) {
+        loadNewChatSuggestions(newGroupSearchResults, onNewGroupSelect, newGroupSelectedMembers);
+      }
+    });
+
+    newGroupSearchInput.addEventListener("input", async (e) => {
+      const val = e.target.value.trim().toLowerCase();
+      if (!val) {
+        loadNewChatSuggestions(newGroupSearchResults, onNewGroupSelect, newGroupSelectedMembers);
+        return;
+      }
+
+      try {
+        const data = await apiRequest(`/api/search?q=${encodeURIComponent(val)}`);
+        const profiles = data.profiles || [];
+
+        // Filter out profiles that are already selected
+        const filtered = profiles.filter(p => !newGroupSelectedMembers.has(p.username));
+
+        if (filtered.length === 0) {
+          newGroupSearchResults.innerHTML = '<div class="add-member-result-row no-results">No matching users found</div>';
+        } else {
+          newGroupSearchResults.innerHTML = filtered.map(p => `
+            <div class="add-member-result-row" data-username="${p.username}">
+              <div class="add-member-result-avatar" ${p.profile_picture ? 'style="background:none;"' : ''}>
+                ${p.profile_picture ? `<img src="${p.profile_picture}" alt="Avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">` : p.username.substring(0,2).toUpperCase()}
+              </div>
+              <div class="add-member-result-meta">
+                <span class="add-member-result-name">${p.full_name || p.username}</span>
+                <span class="add-member-result-handle">@${p.username}</span>
+              </div>
+              <i class="fa-solid fa-plus add-icon"></i>
+            </div>
+          `).join("");
+
+          newGroupSearchResults.querySelectorAll(".add-member-result-row").forEach(row => {
+            row.onclick = () => {
+              const usernameSelected = row.dataset.username;
+              onNewGroupSelect(usernameSelected);
+            };
+          });
+        }
+        newGroupSearchResults.classList.remove("hidden");
+      } catch (err) {
+        console.error("New group search error:", err);
+      }
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!newGroupSearchInput.contains(e.target) && !newGroupSearchResults.contains(e.target)) {
+        newGroupSearchResults.classList.add("hidden");
+      }
+    });
+  }
+
+  // Clear list when modal opens
+  const btnNewGroup = document.getElementById("btn-new-group");
+  if (btnNewGroup) {
+    btnNewGroup.addEventListener("click", () => {
+      newGroupSelectedMembers.clear();
+      updateSelectedMembersUI();
+      if (newGroupSearchInput) {
+        newGroupSearchInput.value = "";
+        loadNewChatSuggestions(newGroupSearchResults, onNewGroupSelect, newGroupSelectedMembers);
+      }
+    });
+  }
+
+  const btnNewChat = document.getElementById("btn-new-chat");
+  if (btnNewChat) {
+    btnNewChat.addEventListener("click", () => {
+      if (newChatInput) {
+        newChatInput.value = "";
+        loadNewChatSuggestions(newChatResults, onNewChatSelect);
+      }
+    });
+  }
+
+  const btnChatEmptyStart = document.getElementById("btn-chat-empty-start");
+  if (btnChatEmptyStart) {
+    btnChatEmptyStart.addEventListener("click", () => {
+      if (newChatInput) {
+        newChatInput.value = "";
+        loadNewChatSuggestions(newChatResults, onNewChatSelect);
+      }
+    });
+  }
+
   // New Group Form Submit
   document.getElementById("new-group-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const name = document.getElementById("new-group-name").value.trim();
-    const membersText = document.getElementById("new-group-members").value.trim();
-    if (!name || !membersText) return;
+    if (!name) return;
+    if (newGroupSelectedMembers.size === 0) {
+      showToast("Please add at least one member to the group");
+      return;
+    }
 
-    const member_usernames = membersText.split(",").map(u => u.trim()).filter(Boolean);
+    const member_usernames = Array.from(newGroupSelectedMembers);
     try {
       const conv = await apiRequest("/api/conversations/group", "POST", {
         name,
@@ -787,6 +1079,8 @@ function setupEventListeners() {
       });
       document.getElementById("modal-new-group").classList.add("hidden");
       document.getElementById("new-group-form").reset();
+      newGroupSelectedMembers.clear();
+      updateSelectedMembersUI();
 
       // Refresh chats and open the group conversation
       await fetchConversations();
@@ -911,6 +1205,45 @@ function saveState() {
     sessionStorage.removeItem("activeConversationPartner");
     sessionStorage.removeItem("activeConversationIsGroup");
     sessionStorage.removeItem("activeConversationGroupName");
+  }
+}
+
+async function confirmAndDeleteActiveConversation() {
+  if (!state.activeConversationId) return;
+
+  const isGroup = state.activeConversationIsGroup;
+  const chatName = isGroup ? (state.activeConversationGroupName || "this group") : `@${state.activeConversationPartner}`;
+  const confirmMsg = isGroup
+    ? `Are you sure you want to delete the group chat "${chatName}"? This will permanently delete the group and all of its messages for all members.`
+    : `Are you sure you want to delete the chat with ${chatName}? This will permanently delete all messages for both users.`;
+
+  if (confirm(confirmMsg)) {
+    try {
+      await apiRequest(`/api/conversations/${state.activeConversationId}`, "DELETE");
+
+      // Close the conversation locally immediately
+      state.activeConversationId = null;
+      state.activeConversationPartner = null;
+      state.activeConversationIsGroup = false;
+      state.activeConversationGroupName = null;
+      saveState();
+
+      const chatWindow = document.getElementById("chat-window");
+      if (chatWindow) {
+        chatWindow.classList.add("empty");
+        chatWindow.querySelector(".chat-active-state").classList.add("hidden");
+        chatWindow.querySelector(".chat-empty-state").classList.remove("hidden");
+      }
+
+      document.getElementById("group-info-panel").classList.add("hidden");
+
+      if (state.activeTab === "messages") {
+        fetchConversations();
+      }
+      showToast("Conversation deleted successfully", "success");
+    } catch (err) {
+      showToast("Failed to delete conversation");
+    }
   }
 }
 
@@ -1639,40 +1972,76 @@ async function fetchProfilePage(targetUsername = null) {
 // ==========================================
 // RELATIONSHIPS (FOLLOWERS / FOLLOWING) MODAL
 // ==========================================
-async function showRelationsModal(type) {
-  if (!state.profile) return;
+async function showRelationsModal(type, targetUsername) {
+  if (!targetUsername) return;
 
   const titleEl = document.getElementById("relations-modal-title");
   const bodyEl = document.getElementById("relations-modal-body");
   const modal = document.getElementById("modal-relations");
+  const searchInput = document.getElementById("relations-search-input");
+
+  if (searchInput) {
+    searchInput.value = "";
+  }
 
   titleEl.textContent = type === "followers" ? "Followers" : "Following";
   bodyEl.innerHTML = `<div class="story-expires-indicator"><i class="fa-solid fa-spinner fa-spin"></i> Loading list...</div>`;
   modal.classList.remove("hidden");
 
   try {
-    const list = await apiRequest(`/api/${state.profile.username}/${type}`);
-    bodyEl.innerHTML = "";
-
-    if (list.length === 0) {
-      bodyEl.innerHTML = `<div class="story-expires-indicator">No users found.</div>`;
-      return;
-    }
-
-    for (const u of list) {
-      const row = document.createElement("div");
-      row.className = "relation-item";
-      row.innerHTML = `
-        <div class="relation-avatar">${u.username.substring(0, 2).toUpperCase()}</div>
-        <div class="relation-details">
-          <span class="relation-username">@${u.username}</span>
-          <span class="relation-fullname">${u.full_name || ""}</span>
-        </div>
-      `;
-      bodyEl.appendChild(row);
-    }
+    const list = await apiRequest(`/api/${targetUsername}/${type}`);
+    activeRelationsList = list;
+    renderFilteredRelations("");
   } catch (err) {
     bodyEl.innerHTML = `<div class="story-expires-indicator" style="color: var(--accent-red);">Failed to load listing.</div>`;
+  }
+}
+
+function renderFilteredRelations(query) {
+  const bodyEl = document.getElementById("relations-modal-body");
+  if (!bodyEl) return;
+  bodyEl.innerHTML = "";
+
+  const q = query.toLowerCase().trim();
+  const filtered = activeRelationsList.filter(u => {
+    const usernameMatch = u.username && u.username.toLowerCase().includes(q);
+    const fullNameMatch = u.full_name && u.full_name.toLowerCase().includes(q);
+    return usernameMatch || fullNameMatch;
+  });
+
+  if (filtered.length === 0) {
+    bodyEl.innerHTML = `<div class="story-expires-indicator">No users found.</div>`;
+    return;
+  }
+
+  for (const u of filtered) {
+    const row = document.createElement("div");
+    row.className = "relation-item";
+
+    const avatarHTML = u.profile_picture
+      ? `<img src="${u.profile_picture}" alt="avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
+      : u.username.substring(0, 2).toUpperCase();
+
+    row.innerHTML = `
+      <div class="relation-avatar" ${u.profile_picture ? 'style="background:none;"' : ''}>${avatarHTML}</div>
+      <div class="relation-details">
+        <span class="relation-username">@${u.username}</span>
+        <span class="relation-fullname">${u.full_name || ""}</span>
+      </div>
+    `;
+
+    row.addEventListener("click", () => {
+      const modal = document.getElementById("modal-relations");
+      if (state.profile && u.username === state.profile.username) {
+        state.viewingUsername = null;
+      } else {
+        state.viewingUsername = u.username;
+      }
+      modal.classList.add("hidden");
+      switchTab("profile");
+    });
+
+    bodyEl.appendChild(row);
   }
 }
 

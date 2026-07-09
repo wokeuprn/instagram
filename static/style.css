@@ -872,6 +872,14 @@ button, input, textarea, select {
   background: rgba(255,255,255,0.06);
 }
 
+.chat-header-actions button.btn-delete-chat {
+  color: var(--accent-white);
+}
+
+.chat-header-actions button.btn-delete-chat:hover {
+  background: rgba(255, 59, 48, 0.12);
+}
+
 /* ── Messages List ─────────────────────────────────────────── */
 .chat-messages {
   flex-grow: 1;
@@ -1554,8 +1562,15 @@ button, input, textarea, select {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 0;
+  padding: 10px 14px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.relation-item:hover {
+  background-color: rgba(255, 255, 255, 0.05);
 }
 
 .relation-item:last-child {
@@ -2343,6 +2358,38 @@ button, input, textarea, select {
   padding: 12px 0;
 }
 
+.group-info-footer {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-card);
+}
+
+.btn-delete-group-action {
+  width: 100%;
+  padding: 12px;
+  font-size: 0.95rem;
+  border-radius: 8px;
+  background-color: var(--accent-red);
+  color: #ffffff;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: var(--transition-smooth);
+}
+
+.btn-delete-group-action:hover {
+  background-color: #e02e24;
+  transform: translateY(-1px);
+}
+
+.btn-delete-group-action:active {
+  transform: translateY(0);
+}
+
 .group-member-row {
   display: flex;
   align-items: center;
@@ -2612,6 +2659,43 @@ button, input, textarea, select {
   color: var(--text-muted);
 }
 
+.relations-search-wrapper {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-color);
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.relations-search-wrapper .search-icon {
+  position: absolute;
+  left: 28px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
+.relations-search-wrapper input {
+  width: 100%;
+  padding: 10px 12px 10px 38px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  outline: none;
+  transition: all 0.2s ease-in-out;
+}
+
+.relations-search-wrapper input:focus {
+  background-color: #1c1c1e;
+  border-color: var(--accent-blue);
+}
+
+.relations-search-wrapper input::placeholder {
+  color: var(--text-muted);
+}
+
 /* Group Info Sidebar - Add Member Section */
 .group-info-add-section {
   padding: 18px 20px;
@@ -2763,6 +2847,46 @@ button, input, textarea, select {
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.selected-members-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px;
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  align-items: center;
+}
+
+.member-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--accent-blue);
+  color: #ffffff;
+  padding: 4px 10px;
+  border-radius: 16px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.member-tag button {
+  background: none;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.member-tag button:hover {
+  color: #ff3b30;
 }
 
 
